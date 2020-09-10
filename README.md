@@ -1,6 +1,6 @@
 ## Relay Secret
 
-Visit [https://relaysecret.surge.sh/](https://relaysecret.surge.sh/) to try it out.
+Visit [https://www.relaysecret.com/](https://www.relaysecret.com/) to try it out.
 
 This project has 3 parts:
 
