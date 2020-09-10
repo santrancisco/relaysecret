@@ -13,7 +13,7 @@
 <body>
 
 	<span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret">Fork me on GitHub</a></span>
-	<div class=container>
+	<div name="pageheader" class=container>
 		<div class="divTablefullwidth">
 			<div class="divTableBody">
 				<div class="divTableRow">
@@ -22,11 +22,17 @@
 					</div>
 					<div class="divTableCell" style="float: right;">
 						<h1>
-							<button id="btnRefresh" onClick="javascript:location.reload();">Refresh Page</button>
-							<button id="btnDivEncrypt" onClick="javascript:switchdiv('encrypt');">Encrypt a
-								File</button>
-							<button id="btnDivDecrypt" onClick="javascript:switchdiv('decrypt');">Decrypt a
-								File</button>
+							<button id="btnDivEncMes" onClick="javascript:switchdiv('encryptmessage');">
+								Encrypt a Message
+							</button>
+							<button id="btnDivEncrypt" onClick="javascript:switchdiv('encryptfile');">
+								Encrypt a File</button>
+							<button id="btnDivDecrypt" onClick="javascript:switchdiv('decrypt');">
+								Decrypt a File</button>
+							<button id="btnRefresh" onClick="javascript:location.reload();">
+								Refresh Page
+							</button>
+							
 						</h1>
 					</div>
 				</div>
@@ -35,31 +41,39 @@
 	</div>
 
 
-	<div class=container>
+	<div name="thematicbreak" class=container>
 		<hr>
 	</div>
 
-	<div class="container" id=divEncryptfile style="display:none">
-		<h2>Encrypt a File</h2>
-		<p>To encrypt and send a file, drop the file (Max 30Mb)</p>
-		<p><u>Original filename is not encrypted and stored as tag for s3 object!</u></p>
-
-
-		<div>
-			<div class=dropzone id="encdropzone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);"
-				ondragend="dragend_handler(event);">
-				<p>Drag and drop the file to be encrypted into this dropzone, or click <a
-						onclick=javascript:encfileElem.click();>here</a> to select file.</p>
-				<p><b><span id=spnencfilename></span></b></p>
+	<div class="container" id=divEncrypt style="display:none">
+		<div id=divEncryptMessage>
+			<h2>Encrypt a message</h2>
+			<div>
+				<textarea placeholder="please enter your secret message here..." id="textareaEncryptmessage" name="secret" maxlength="500"></textarea>
 			</div>
-			<input type="file" id="encfileElem" style="display:none" onchange="selectfile(this.files)">
+		</div>
+		<div id=divEncryptFile>
+			<h2>Encrypt a File</h2>
+			<p>To encrypt and send a file, drop the file (Max 30Mb)</p>
+			<p><u>Note: Filename is not encrypted!</u></p>
+
+
+			<div>
+				<div class=dropzone id="encdropzone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);"
+					ondragend="dragend_handler(event);">
+					<p>Drag and drop the file to be encrypted into this dropzone, or click <a
+							onclick=javascript:encfileElem.click();>here</a> to select file.</p>
+					<p><b><span id=spnencfilename></span></b></p>
+				</div>
+				<input type="file" id="encfileElem" style="display:none" onchange="selectfile(this.files)">
+			</div>
 		</div>
 		<p></p>
 		<div class="divTable">
 			<div class="divTableBody">
-				<div class="divTableRow">
+				<div class="divTableRow" id=divFilename>
 					<div class="divTableCell">Filename</div>
-					<div class="divTableCell"><input id=txtFilename size=30 value=''></div>
+					<div class="divTableCell"><input id=txtFilename onchange="originalfilename=txtFilename.value" size=30 value=''></div>
 					<div class="divTableCell" style="color:#FF851d">(This is stored in cleartext - change if sensitive)
 					</div>
 				</div>
@@ -111,6 +125,7 @@
 
 		<p> </p>
 	</div>
+
 	<div class="container" id=divEncryptResult style="display:none">
 		<div class="divTableBody">
 			<div class="divTableRow">
@@ -132,7 +147,7 @@
 		</div>
 	</div>
 
-	<div class="container" id=divDecryptfile style="display:none">
+	<div class="container" id=divDecrypt style="display:none">
 		<h2>Decrypt a File</h2>
 		<p>Filesize: <b id="filesize">pending...</b></p>
 
@@ -145,11 +160,19 @@
 				</div>
 			</div>
 		</div>
-
+		
 		<p> </p>
 		<div>
-			<button id=btnDecrypt onclick=javascript:decryptfile();>Download & Decrypt File</button> <span
-				id="spnDecstatus"></span>
+			<button id=btnDecrypt onclick=javascript:decryptfile();>Download & Decrypt File</button> 
+			<span id="spnDecstatus"></span>
+			<br>
+			<div id=divDecryptmessage style="display:none">
+				<h3>Decrypted message</h3>
+				<div>
+					<textarea id="textareaDecryptmessage" maxlength="500"></textarea>
+				</div>
+			</div>
+			<br>
 			<a id=aDecsavefile onclick="javascript:postdownloadaction();" hidden><button>Save Encrypted
 					File</button></a>
 		</div>
@@ -174,7 +197,6 @@
 </html>
 
 <script src="/assets/config.js"></script>
-<script src="/assets/base64.js"></script>
 <script src="/assets/main.js">
 
 
