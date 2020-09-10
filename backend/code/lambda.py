@@ -1,0 +1,133 @@
+import boto3
+import sys
+import hashlib
+import time
+import secrets
+import os
+import json
+import re
+from urllib.parse import urlsplit, urlunsplit
+
+# Change BUCKET_NAME to your bucket name and
+# KEY_NAME to the name of a file in the directory where you'll run the curl command.
+bkt = os.environ['BUCKETNAME']
+seed = os.environ['SEED']
+appurl = os.environ['APPURL']
+
+def getposturl(expiretime):
+    try:
+        exp=int(expiretime)
+    except:
+        exp=5
+
+    s3 = boto3.client('s3')
+    fields = {
+            "acl": "private",
+            }
+    conditions = [
+        {"acl": "private"},
+        {"content-type":"text/plain"},
+        ["content-length-range", 1, 30000000],
+        ["starts-with", "$x-amz-meta-tag", ""]
+    ]
+    
+    # sha256 of seed, random bits and time just to make sure it is unique ;).
+    random = seed+str(time.time())+str(secrets.randbits(256))
+    h = hashlib.sha256()
+    h.update(random.encode("utf-8"))
+    keyname = "{exp}day/{sha256}".format(exp=exp,sha256=h.hexdigest())
+    
+    return s3.generate_presigned_post(Bucket=bkt,Key=keyname,Fields=fields,Conditions=conditions)
+
+
+def getobj(key):
+    s3 = boto3.client('s3')
+    response = s3.head_object(Bucket=bkt, Key=key)
+    size = response['ContentLength']
+    print(size)
+    return {
+        "objsize":size,
+        "signedurl": s3.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': bkt,
+        'Key': key},
+        ExpiresIn=3600
+    )
+    }
+
+def deleteobj(key):
+    s3 = boto3.client('s3')
+    return s3.delete_object(
+        Bucket=bkt,
+        Key=key)
+
+#https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
+def app_handler(event, context):
+    print ("Starting")
+    try:
+        referer = event["headers"]["Referer"]
+    except:
+        referer = ""
+    path = event["path"]
+    # In prod, we will exit and return 200ok
+    if (appurl != "devmode" and not referer.startswith(appurl)):
+        return {
+        "statusCode": 200,
+        "body"  : 'ok'
+    }   
+    split_url = urlsplit(referer)
+    clean_path = split_url.scheme+"://"+split_url.netloc 
+    
+    geturlmatch = re.compile("^/[0-9]day/[0-9a-fA-F]{64}$")  
+    deleteurlmatch = re.compile("^/delete/[0-9]day/[0-9a-fA-F]{64}$")  
+    headers = {
+        'Access-Control-Allow-Origin': clean_path,
+        'Content-Type': "application/json"
+    }
+    print (headers)
+    statuscode = 404
+    body = {"404":True}
+    if path.startswith("/gettoken/"):
+         # /gettoken/{1-5}
+        try:
+            expiretime=int(path[10])
+        except:
+            expiretime=1
+        try:
+            body = getposturl(expiretime)
+            statuscode = 200
+        except:
+            pass
+    elif(geturlmatch.match(path)):
+        try :
+            body = getobj(path[1:])
+            statuscode = 200
+        except:
+            pass
+
+    elif(deleteurlmatch.match(path)):
+        body = deleteobj(path[8:])
+        statuscode = 200
+    # Ignore the rest
+    return {
+        "statusCode": statuscode,
+        "headers": headers,
+        "body"  : json.dumps(body)
+    }  
+
+# Our debug main
+if __name__ == '__main__':
+    try:
+        expiretime=int(sys.argv[1])
+    except:
+        expiretime=5
+    print(expiretime)
+    resp=getposturl(expiretime)
+    print (resp)
+    resp['fields']['file'] = '@{key}'.format(key="kb.jpg")
+    form_values = "  ".join(["-F {key}={value} ".format(key=key, value=value)
+                        for key, value in resp['fields'].items()])
+
+    print('curl command: \n')
+    print('curl -v {form_values} {url}'.format(form_values=form_values, url=resp['url']))
+    print('')
