@@ -61,7 +61,8 @@ def deleteobj(key):
         Bucket=bkt,
         Key=key)
 
-#https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
+# This is our lambda handler. apigateway will proxy all events to this lambda
+# See https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
 def app_handler(event, context):
     print ("Starting")
     try:
@@ -115,7 +116,7 @@ def app_handler(event, context):
         "body"  : json.dumps(body)
     }  
 
-# Our debug main
+# Our main is purely for debug, we can run this locally to retrieve a POST signed URL.
 if __name__ == '__main__':
     try:
         expiretime=int(sys.argv[1])

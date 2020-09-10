@@ -156,6 +156,11 @@ li p {
   margin-left: 25px;
 }
 
+textarea{
+  width: 50%;
+  height:200px;
+}
+
 li {
   list-style: none;
   line-height: 1px;

@@ -3,7 +3,8 @@
 
 var mode = null;
 var objFile = null;
-var originalfilename = "plain.dec";
+var encryptemessagemode = false;
+var originalfilename = "plaintext.txt";
 var deleteondownload = false;
 var objurl = null;
 var plaintext = null;
@@ -13,7 +14,7 @@ var anchorkey = window.location.hash.substring(1);
 var objmetadata = null;
 var downloadurl = null;
 
-switchdiv('encrypt');
+switchdiv('encryptmessage');
 try {
     objurl = getUrlVars()["obj"]
     if (objurl != undefined) {
@@ -73,21 +74,22 @@ function uploadToS3(expire, bytearray) {
     modalstatus.innerText="Getting presigned s3 URL for upload.";
     var url = lambdaurl + 'gettoken/' + expire;
     var filemetadata = {
-        name:txtFilename.value,
+        name:originalfilename,
         deleteondownload:inputdeleteondownload.checked
     }
     fetch(url)
         .then(response => response.json())
         .then(
             function (data) {
-                var b64blob = base64ArrayBuffer(bytearray);
+                // var b64blob = base64ArrayBuffer(bytearray);
+                blob = new Blob([bytearray], { type: 'application/octet-stream' });
                 const formData = new FormData();
                 formData.append("Content-Type", "text/plain");
                 formData.append("x-amz-meta-tag",(JSON.stringify(filemetadata)))
                 Object.entries(data.fields).forEach(([k, v]) => {
                     formData.append(k, v);
                 });
-                formData.append("file", b64blob);
+                formData.append("file", blob);
                 modalstatus.innerText="Uploading encrypted blob";
                 fetch(data.url, {
                     method: "POST",
@@ -105,7 +107,7 @@ function uploadToS3(expire, bytearray) {
                         span_objname.innerText = data.fields.key
                         span_keymat.innerText = tempkey
                         divEncryptResult.style.display = "block";
-                        divEncryptfile.style.display = "none";
+                        divEncrypt.style.display = "none";
                     } else {
                         spandownloadurl.innerText = "Failed to upload the file to S3";
                         spnEncstatus.classList.remove("greenspan");
@@ -135,14 +137,16 @@ async function downloadFromS3() {
     } catch {
         filemetadata = {name:"plain.dec",deleteondownload:false};
     }
-    originalfilename = filemetadata.name;
+    if (filemetadata.name != "") {
+        originalfilename = filemetadata.name;
+    }
+    if (originalfilename == "messageinbrowser.txt") {
+        encryptemessagemode = true;
+    }
     deleteondownload = filemetadata.deleteondownload;
-    modalstatus.innerText="Decoding object from base64 to binary...";
-    text = await response.text()
 
-    downloadedcipherbytes = new Uint8Array(atob(text).split("").map(function (c) {
-        return c.charCodeAt(0);
-    }));
+    buff = await response.arrayBuffer();
+    downloadedcipherbytes = new Uint8Array(buff)
     modalstatus.innerText="Decrypting binary blob";
     return downloadedcipherbytes
 }
@@ -177,17 +181,43 @@ function copyURI(evt) {
 }
 
 function switchdiv(t) {
-    if (t == 'encrypt') {
-        divEncryptfile.style.display = 'block';
-        divDecryptfile.style.display = 'none';
+    if (t == 'encryptfile') {
+        divEncrypt.style.display = 'block';
+        divDecrypt.style.display = 'none';
+        encryptemessagemode = false;
+
+        divEncryptMessage.style.display = 'none';
+        divEncryptFile.style.display = 'block';
+        divFilename.style.display = '';
+        originalfilename = "plaintext.txt";
+        
         btnDivEncrypt.disabled = true;
         btnDivDecrypt.disabled = false;
+        btnDivEncMes.disabled = false;
+        mode = 'encrypt';
+    } else if (t == 'encryptmessage') {
+        divEncrypt.style.display = 'block';
+        divDecrypt.style.display = 'none';
+        encryptemessagemode = true;
+
+        divEncryptMessage.style.display = 'block';
+        divEncryptFile.style.display = 'none';
+        divFilename.style.display = 'none';
+        originalfilename = "messageinbrowser.txt"
+
+        btnDivEncrypt.disabled = false;
+        btnDivDecrypt.disabled = false;
+        btnDivEncMes.disabled = true;
         mode = 'encrypt';
     } else if (t == 'decrypt') {
-        divEncryptfile.style.display = 'none';
-        divDecryptfile.style.display = 'block';
+        divEncrypt.style.display = 'none';
+        divDecrypt.style.display = 'block';
+        encryptemessagemode = false;
+        originalfilename = "plaintext.txt";
+
         btnDivEncrypt.disabled = false;
         btnDivDecrypt.disabled = true;
+        btnDivEncMes.disabled = false;
         mode = 'decrypt';
     }
 }
@@ -216,7 +246,6 @@ function drop_handler(ev) {
         objFile = file[0];
     }
     displayfile()
-    txtFilename.value = objFile.name;
 }
 
 function dragover_handler(ev) {
@@ -246,6 +275,8 @@ function selectfile(Files) {
 }
 
 function displayfile() {
+    originalfilename = objFile.name;
+    txtFilename.value = objFile.name;
     var s;
     var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     var bytes = objFile.size;
@@ -272,13 +303,24 @@ function readfile(file) {
 async function encryptfile() {
     modalstatus.innerText="Encrypting file with AES using tempkey and user provided password."
     btnEncrypt.disabled = true;
+    var plaintextbytes = null;
 
-    var plaintextbytes = await readfile(objFile)
-        .catch(function (err) {
-            console.error(err);
-        });
-    var plaintextbytes = new Uint8Array(plaintextbytes);
-
+    if (encryptemessagemode){
+        var plaintextbytes = new TextEncoder("utf-8").encode(textareaEncryptmessage.value)
+    } else {
+        var plaintextbytes = await readfile(objFile)
+            .catch(function (err) {
+                console.error(err);
+                body.classList.remove("loading");
+            });
+        var plaintextbytes = new Uint8Array(plaintextbytes);
+    }
+    
+    if (plaintextbytes.length == 0){
+        spnEncstatus.classList.add("redspan");
+        spnEncstatus.innerHTML = '<p>There is nothing to encrypt...</p>';
+        return
+    }
     var pbkdf2iterations = 10000;
     var passphrasebytes = new TextEncoder("utf-8").encode(txtEncpassphrase.value + tempkey);
     var pbkdf2salt = window.crypto.getRandomValues(new Uint8Array(8));
@@ -286,12 +328,14 @@ async function encryptfile() {
     var passphrasekey = await window.crypto.subtle.importKey('raw', passphrasebytes, { name: 'PBKDF2' }, false, ['deriveBits'])
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
     console.log('passphrasekey imported');
 
     var pbkdf2bytes = await window.crypto.subtle.deriveBits({ "name": 'PBKDF2', "salt": pbkdf2salt, "iterations": pbkdf2iterations, "hash": 'SHA-256' }, passphrasekey, 384)
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
     console.log('pbkdf2bytes derived');
     pbkdf2bytes = new Uint8Array(pbkdf2bytes);
@@ -302,12 +346,14 @@ async function encryptfile() {
     var key = await window.crypto.subtle.importKey('raw', keybytes, { name: 'AES-CBC', length: 256 }, false, ['encrypt'])
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
     console.log('key imported');
 
     var cipherbytes = await window.crypto.subtle.encrypt({ name: "AES-CBC", iv: ivbytes }, key, plaintextbytes)
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
 
     if (!cipherbytes) {
@@ -331,9 +377,6 @@ async function encryptfile() {
     // aEncsavefile.href = blobUrl;
     // aEncsavefile.download = objFile.name + '.enc';
     // aEncsavefile.hidden = false;
-    spnEncstatus.classList.add("greenspan");
-    spnEncstatus.innerHTML = '<p>File encrypted.</p>';
- 
 }
 
 async function decryptfile() {
@@ -350,6 +393,7 @@ async function decryptfile() {
     var passphrasekey = await window.crypto.subtle.importKey('raw', passphrasebytes, { name: 'PBKDF2' }, false, ['deriveBits'])
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
 
         });
     console.log('passphrasekey imported');
@@ -357,6 +401,7 @@ async function decryptfile() {
     var pbkdf2bytes = await window.crypto.subtle.deriveBits({ "name": 'PBKDF2', "salt": pbkdf2salt, "iterations": pbkdf2iterations, "hash": 'SHA-256' }, passphrasekey, 384)
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
     console.log('pbkdf2bytes derived');
     pbkdf2bytes = new Uint8Array(pbkdf2bytes);
@@ -368,12 +413,14 @@ async function decryptfile() {
     var key = await window.crypto.subtle.importKey('raw', keybytes, { name: 'AES-CBC', length: 256 }, false, ['decrypt'])
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
     console.log('key imported');
 
     var plaintextbytes = await window.crypto.subtle.decrypt({ name: "AES-CBC", iv: ivbytes }, key, cipherbytes)
         .catch(function (err) {
             console.error(err);
+            body.classList.remove("loading");
         });
 
     if (!plaintextbytes) {
@@ -394,7 +441,18 @@ async function decryptfile() {
     spnDecstatus.classList.add("greenspan");
     spnDecstatus.innerHTML = '<p>File decrypted.</p>';
     aDecsavefile.hidden = false;
+    // If this is a message send in browser, show it.
     body.classList.remove("loading");
+    if (encryptemessagemode)
+    {
+        textareaDecryptmessage.value =  new TextDecoder("utf-8").decode(plaintextbytes)
+        divDecryptmessage.style.display = "";
+        if (deleteondownload) {
+            deletefile();
+        } else {
+            aDeleteFile.hidden = false;
+        }
+    }
 }
 
 function postdownloadaction(){
