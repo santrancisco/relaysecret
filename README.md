@@ -5,7 +5,7 @@ Visit [https://relaysecret.surge.sh/](https://relaysecret.surge.sh/) to try it o
 This project has 3 parts:
 
  - The simple backend lambda function to generate signed url for user to upload, download and delete files from S3 
- - The frontend with half of the code took from [this project](https://github.com/meixler/web-browser-based-file-encryption-decryption/blob/master/web-browser-based-file-encryption-decryption.html) with some extra fetch calls sprinkel ontop to handle ajax calls to the lambda and upload/download from s3
+ - The frontend with half of the code took from [this project writen by meixler](https://github.com/meixler/web-browser-based-file-encryption-decryption/blob/master/web-browser-based-file-encryption-decryption.html) with some extra fetch calls sprinkel ontop to handle ajax calls to the lambda and upload/download from s3
  - The terraform code which deploy a lambda function, an api gateway and our encrypted s3 bucket with special CORs policy and expire rules to make it all work ;)
 
 ## Process flow

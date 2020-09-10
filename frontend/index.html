@@ -1,158 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<title>Send files safely, encryption done in browser.</title>
-		<style type="text/css">@import url(./assets/font.css);</style>
-		<link href="/assets/main.css" rel="stylesheet" type="text/css" />
-	</head>
-	<body>
-		<div class=container>
-			<div class="divTablefullwidth">
-				<div class="divTableBody">
-					<div class="divTableRow">
-						<div class="divTableCell" style="float: left;">
-							<h1 class="header__title">Relay Secret</h1>
-						</div>
-						<div class="divTableCell" style="float: right;">
-							<h1>
+
+<head>
+	<meta charset="utf-8">
+	<title>Send files safely, encryption done in browser.</title>
+	<style type="text/css">
+		@import url(./assets/font.css);
+	</style>
+	<link href="/assets/main.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+
+	<span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret">Fork me on GitHub</a></span>
+	<div class=container>
+		<div class="divTablefullwidth">
+			<div class="divTableBody">
+				<div class="divTableRow">
+					<div class="divTableCell" style="float: left;">
+						<h1 class="header__title">Relay Secret</h1>
+					</div>
+					<div class="divTableCell" style="float: right;">
+						<h1>
 							<button id="btnRefresh" onClick="javascript:location.reload();">Refresh Page</button>
-							<button id="btnDivEncrypt" onClick="javascript:switchdiv('encrypt');">Encrypt a File</button>
-							<button id="btnDivDecrypt" onClick="javascript:switchdiv('decrypt');">Decrypt a File</button>
-							</h1>
-						</div>
+							<button id="btnDivEncrypt" onClick="javascript:switchdiv('encrypt');">Encrypt a
+								File</button>
+							<button id="btnDivDecrypt" onClick="javascript:switchdiv('decrypt');">Decrypt a
+								File</button>
+						</h1>
 					</div>
 				</div>
 			</div>
 		</div>
+	</div>
 
 
-		<div class=container>
-			<hr>
+	<div class=container>
+		<hr>
+	</div>
+
+	<div class="container" id=divEncryptfile style="display:none">
+		<h2>Encrypt a File</h2>
+		<p>To encrypt and send a file, drop the file (Max 30Mb)</p>
+		<p><u>Original filename is not encrypted and stored as tag for s3 object!</u></p>
+
+
+		<div>
+			<div class=dropzone id="encdropzone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);"
+				ondragend="dragend_handler(event);">
+				<p>Drag and drop the file to be encrypted into this dropzone, or click <a
+						onclick=javascript:encfileElem.click();>here</a> to select file.</p>
+				<p><b><span id=spnencfilename></span></b></p>
+			</div>
+			<input type="file" id="encfileElem" style="display:none" onchange="selectfile(this.files)">
 		</div>
-
-		<div class="container" id=divEncryptfile>
-			<h2>Encrypt a File</h2>
-			<p>To encrypt and send a file, drop the file (Max 30Mb)</p>
-			<p><u>Original filename is not encrypted and stored as tag for s3 object!</u></p>
-
-
-			<div>
-				<div class=dropzone id="encdropzone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);" ondragend="dragend_handler(event);">
-					<p>Drag and drop the file to be encrypted into this dropzone, or click <a onclick=javascript:encfileElem.click();>here</a> to select file.</p>
-					<p><b><span id=spnencfilename></span></b></p>
-				</div>
-				<input type="file" id="encfileElem" style="display:none" onchange="selectfile(this.files)">
-			</div>
-			<p></p>
-			<div class="divTable">
-				<div class="divTableBody">
-					<div class="divTableRow">
-						<div class="divTableCell">Filename</div>
-						<div class="divTableCell"><input id=txtFilename  size=30 value=''></div>
-						<div class="divTableCell" style="color:#FF851d">(This is stored in cleartext - change if sensitive)</div>
-					</div>
-					<div class="divTableRow">
-						<div class="divTableCell">Password</div>
-						<div class="divTableCell"><input id=txtEncpassphrase  size=30 value=''></div>
-						<div class="divTableCell">(For extra security but file will be encrypted regardless)</div>
+		<p></p>
+		<div class="divTable">
+			<div class="divTableBody">
+				<div class="divTableRow">
+					<div class="divTableCell">Filename</div>
+					<div class="divTableCell"><input id=txtFilename size=30 value=''></div>
+					<div class="divTableCell" style="color:#FF851d">(This is stored in cleartext - change if sensitive)
 					</div>
 				</div>
-			</div>
-			<!-- <ul id="progress">
-				<li><div class="node grey"></div><p>The First Thing!</p></li>
-				<li><div class="divider grey"></div></li>
-				<li><div class="node grey"></div><p>The Second Thing!</p></li>
-				<li><div class="divider grey"></div></li>
-				<li><div class="node grey"></div><p>The Third Thing!</p></li>
-				<li><div class="divider grey"></div></li>
-				<li><div class="node grey"></div><p>The Fourth Thing!</p></li>
-				<li><div class="divider grey"></div></li>
-				<li><div class="node grey"></div><p>The Last Thing!</p></li>
-			</ul> -->
-		
-			<p> </p>
-			<p> </p>
-
-			<div class="divTable">
-				<div class="divTableBody">
-					<div class="divTableRow">
-						<div class="divTableCell"><button id=btnEncrypt onclick=javascript:encryptfile();>Encrypt File</button></div>
-						<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false">
-						<label for="inputdeleteondownload"> Delete On Download</label><br>
-						<div class="divTableCell"><span id=spnEncstatus></span></div>
-					</div>
+				<div class="divTableRow">
+					<div class="divTableCell">Password</div>
+					<div class="divTableCell"><input id=txtEncpassphrase size=30 value=''></div>
+					<div class="divTableCell">(For extra security but file will be encrypted regardless)</div>
 				</div>
-			</div>
-			<p> </p>
-			<div class="divTable">
-				<div class="divTableBody">
-					<div class="divTableRow">
-						<span>Expire in:  </span>
+				<div class="divTableRow">
+					<div class="divTableCell">Expire in: </div>
+					<div class="divTableCell">
 						<select name="expiretime" id="expiretime">
 							<option value="1">1 day</option>
 							<option value="2">2 days</option>
 							<option value="3">3 days</option>
 							<option value="4">4 days</option>
 							<option value="5">5 days</option>
-						  </select>
+						</select>
 					</div>
+
 				</div>
 			</div>
+		</div>
 
-			<p> </p>
-			<p><b>Download URL:<span id=spandownloadurl></span></b></p>
-			<p> 
-				<p style="color: #0074D9;"><b>Encrypted S3 object key : <span id="span_objname"></span></b><p>
-				<p style="color: #FF851B;"><b>Key material            : <span id="span_keymat"></span></b></p>
-				<p style="color: #111111;"><b>Note: Notice that the key material is behind anchortag (#) and never leave your browser. You can find more information in <a href="https://en.wikipedia.org/wiki/URI_fragment">wikipedia (URI fragment)</a> and on official <a href="https://tools.ietf.org/html/rfc1808#section-2.4.1">RFC1808</a></a></b></p>
-				<p>
-					This project is inspired and took some of the code written in <a href="https://github.com/meixler/web-browser-based-file-encryption-decryption">this project</a> by meixler!
-					Source code for this project can be found <a href="https://github.com/santrancisco/relaysecret">here.</a>
+		<p> </p>
+		<p> </p>
+
+		<div class="divTable">
+			<div class="divTableBody">
+				<div class="divTableRow">
+					<div class="divTableCell"><button id=btnEncrypt onclick=javascript:encryptfile();>Encrypt
+							File</button></div>
+					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false">
+					<label for="inputdeleteondownload"> Delete On Download</label><br>
+
+				</div>
+				<div class="divTableRow">
+					<div class="divTableCell"><span id=spnEncstatus></span></div>
+				</div>
+
+			</div>
+		</div>
+		<p> </p>
+		<div class="divTable">
+			<div class="divTableBody">
+
+			</div>
+		</div>
+
+		<p> </p>
+	</div>
+	<div class="container" id=divEncryptResult style="display:none">
+		<div class="divTableBody">
+			<div class="divTableRow">
+				<p><b>Download URL:<span id=spandownloadurl></span></b></p>
+			</div>
+			<div class="divTableRow"></div>
+			<div class="divTableRow">
+				<p style="color: #0074D9;">Encrypted obj key : <span id="span_objname"></span></p>
+				<p style="color: #FF851B;">Key material : <span id="span_keymat"></span></p>
+			</div>
+			<div class="divTableRow">
+				<p style="color: #303030;">
+					<b>Note: </b> Notice that the key material is behind anchortag (#) and never
+					leave your browser. You can find more information in <a
+						href="https://en.wikipedia.org/wiki/URI_fragment">wikipedia (URI fragment)</a> and on official
+					<a href="https://tools.ietf.org/html/rfc1808#section-2.4.1">RFC1808</a></b>
 				</p>
-			</p>
-			<p> </p>
+			</div>
 		</div>
+	</div>
 
-		<div class="container" id=divDecryptfile>
-			<h2>Decrypt a File</h2>
-			<p>Filesize: <b id="filesize">pending...</b></p>
+	<div class="container" id=divDecryptfile style="display:none">
+		<h2>Decrypt a File</h2>
+		<p>Filesize: <b id="filesize">pending...</b></p>
 
-			<div class="divTable">
-				<div class="divTableBody">
-					<div class="divTableRow">
-						<div class="divTableCell">Password</div>
-						<div class="divTableCell"><input id=txtDecpassphrase size=30 value=''></div>
-						<div class="divTableCell">(Optional, anchorkey is always used regardless)</div>
-					</div>
+		<div class="divTable">
+			<div class="divTableBody">
+				<div class="divTableRow">
+					<div class="divTableCell">Password</div>
+					<div class="divTableCell"><input id=txtDecpassphrase size=30 value=''></div>
+					<div class="divTableCell">(Optional, anchorkey is always used regardless)</div>
 				</div>
 			</div>
-
-			<p> </p> 
-		    <div>
-				<button id=btnDecrypt onclick=javascript:decryptfile(); >Download & Decrypt File</button> <span id="spnDecstatus"></span>
-				<a id=aDecsavefile onclick="javascript:postdownloadaction();" hidden><button>Save Encrypted File</button></a> 
-			</div>
-		
-			<p> </p>
-			<div>
-				<a id=aDeleteFile hidden><button onclick=javascript:deletefile(); >Delete File</button></a>
-			</div>
 		</div>
 
+		<p> </p>
+		<div>
+			<button id=btnDecrypt onclick=javascript:decryptfile();>Download & Decrypt File</button> <span
+				id="spnDecstatus"></span>
+			<a id=aDecsavefile onclick="javascript:postdownloadaction();" hidden><button>Save Encrypted
+					File</button></a>
 		</div>
-		<BR>
-			<div class="modal">
-					<div class="modal-grid">
-						<div id="modalstatus" class="modal-grid-item"><h1>Please wait ...</h1></div>
-					</div>
+
+		<p> </p>
+		<div>
+			<a id=aDeleteFile hidden><button onclick=javascript:deletefile();>Delete File</button></a>
+		</div>
+	</div>
+
+	</div>
+	<BR>
+	<div class="modal">
+		<div class="modal-grid">
+			<div id="modalstatus" class="modal-grid-item">
+				<h1>Please wait ...</h1>
 			</div>
-	</body>
+		</div>
+	</div>
+</body>
+
 </html>
 
 <script src="/assets/config.js"></script>
+<script src="/assets/base64.js"></script>
 <script src="/assets/main.js">
-	
+
 
 </script>
-
