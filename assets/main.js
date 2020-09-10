@@ -70,17 +70,17 @@ function getMetadata(objurl) {
 function uploadToS3(expire, bytearray) {
     var body = document.body;
     body.classList.add("loading");
+    modalstatus.innerText="Getting presigned s3 URL for upload.";
     var url = lambdaurl + 'gettoken/' + expire;
     var filemetadata = {
         name:txtFilename.value,
         deleteondownload:inputdeleteondownload.checked
     }
-    modalstatus.innerText="Getting presigned s3 URL for upload.";
     fetch(url)
         .then(response => response.json())
         .then(
             function (data) {
-                var b64blob = btoa(String.fromCharCode.apply(null, bytearray));
+                var b64blob = base64ArrayBuffer(bytearray);
                 const formData = new FormData();
                 formData.append("Content-Type", "text/plain");
                 formData.append("x-amz-meta-tag",(JSON.stringify(filemetadata)))
@@ -104,6 +104,8 @@ function uploadToS3(expire, bytearray) {
                             spandownloadurl.innerHTML = "<a style='color:#303030' href='" + downloadurl + "' onclick='copyURI(event)'>" + decoratedeurl + "</a> (Click to copy)"
                         span_objname.innerText = data.fields.key
                         span_keymat.innerText = tempkey
+                        divEncryptResult.style.display = "block";
+                        divEncryptfile.style.display = "none";
                     } else {
                         spandownloadurl.innerText = "Failed to upload the file to S3";
                         spnEncstatus.classList.remove("greenspan");
@@ -135,13 +137,13 @@ async function downloadFromS3() {
     }
     originalfilename = filemetadata.name;
     deleteondownload = filemetadata.deleteondownload;
-
+    modalstatus.innerText="Decoding object from base64 to binary...";
     text = await response.text()
 
     downloadedcipherbytes = new Uint8Array(atob(text).split("").map(function (c) {
         return c.charCodeAt(0);
     }));
-
+    modalstatus.innerText="Decrypting binary blob";
     return downloadedcipherbytes
 }
 
@@ -335,8 +337,11 @@ async function encryptfile() {
 }
 
 async function decryptfile() {
+    var body = document.body;
+    body.classList.add("loading");
+    modalstatus.innerText="Downloading from S3";
     var cipherbytes = await downloadFromS3();
-
+    modalstatus.innerText="Decrypting file using anchor key and user provided key";
     var pbkdf2iterations = 10000;
     var passphrasebytes = new TextEncoder("utf-8").encode(txtDecpassphrase.value + anchorkey);
     var pbkdf2salt = cipherbytes.slice(8, 16);
@@ -389,6 +394,7 @@ async function decryptfile() {
     spnDecstatus.classList.add("greenspan");
     spnDecstatus.innerHTML = '<p>File decrypted.</p>';
     aDecsavefile.hidden = false;
+    body.classList.remove("loading");
 }
 
 function postdownloadaction(){
