@@ -12,8 +12,7 @@ var tempkey = uuidv4();
 var anchorkey = window.location.hash.substring(1);
 var objmetadata = null;
 var downloadurl = null;
-// Change to your lambda endpoint here
-var lambdaurl = "https://hv21tcnxw9.execute-api.us-east-1.amazonaws.com/alpha/";
+
 switchdiv('encrypt');
 try {
     objurl = getUrlVars()["obj"]
