@@ -16,12 +16,13 @@
 	<div name="pageheader" class=container>
 		<div class="divTablefullwidth">
 			<div class="divTableBody">
+				<div class="divTableRow"><h1 class="header__title">Relay Secret</h1></div>
 				<div class="divTableRow">
 					<div class="divTableCell" style="float: left;">
-						<h1 class="header__title">Relay Secret</h1>
+						
+						<i>A simple way to send data securely to people</i>
 					</div>
 					<div class="divTableCell" style="float: right;">
-						<h1>
 							<button id="btnDivEncMes" onClick="javascript:switchdiv('encryptmessage');">
 								Encrypt a Message
 							</button>
@@ -32,8 +33,6 @@
 							<button id="btnRefresh" onClick="javascript:location.reload();">
 								Refresh Page
 							</button>
-							
-						</h1>
 					</div>
 				</div>
 			</div>
@@ -102,8 +101,7 @@
 		<div class="divTable">
 			<div class="divTableBody">
 				<div class="divTableRow">
-					<div class="divTableCell"><button id=btnEncrypt onclick=javascript:encryptfile();>Encrypt
-							File</button></div>
+					<div class="divTableCell"><button id=btnEncrypt onclick=javascript:encryptfile();>Encrypt & Upload</button></div>
 					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false">
 					<label for="inputdeleteondownload"> Delete On Download</label><br>
 
