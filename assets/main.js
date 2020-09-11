@@ -47,7 +47,7 @@ function getMetadata(objurl) {
         .then(function (response) {
             body.classList.remove("loading");
             if (response.status == 404) {
-                filesize.innerText = "Failed to fetch metadata - File may no longer exist.";
+                bFilename.innerText = "Failed to fetch metadata - File may no longer exist.";
                 return
             }
             response.json().then(
@@ -59,7 +59,9 @@ function getMetadata(objurl) {
                     } else if ((objmetadata.objsize / 1024) > 1) {
                         ss = String((objmetadata.objsize / 1024).toFixed(0)) + " Kb"
                     }
-                    filesize.innerText = ss;
+                    originalfilename = data.objname.replace(/[^A-Za-z0-9\-\_\.]/g, '');
+                    bFilename.innerText = originalfilename;
+                    bFilesize.innerText = ss;
                 }
             )
 
@@ -138,7 +140,7 @@ async function downloadFromS3() {
         filemetadata = {name:"plain.dec",deleteondownload:false};
     }
     if (filemetadata.name != "") {
-        originalfilename = filemetadata.name;
+        originalfilename = filemetadata.name.replace(/[^A-Za-z0-9\-\_\.]/g, '');;
     }
     if (originalfilename == "messageinbrowser.txt") {
         encryptemessagemode = true;
@@ -275,7 +277,7 @@ function selectfile(Files) {
 }
 
 function displayfile() {
-    originalfilename = objFile.name;
+    originalfilename = objFile.name.replace(/[^A-Za-z0-9\-\_\.]/g, '');;
     txtFilename.value = objFile.name;
     var s;
     var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -441,6 +443,7 @@ async function decryptfile() {
     spnDecstatus.classList.add("greenspan");
     spnDecstatus.innerHTML = '<p>File decrypted.</p>';
     aDecsavefile.hidden = false;
+    aDeleteFile.hidden = false;
     // If this is a message send in browser, show it.
     body.classList.remove("loading");
     if (encryptemessagemode)
@@ -459,7 +462,5 @@ function postdownloadaction(){
     if (deleteondownload) {
         deletefile();
         return
-    } else {
-        aDeleteFile.hidden = false;
     }
 }

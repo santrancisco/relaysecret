@@ -71,8 +71,8 @@
 			<div class="divTableBody">
 				<div class="divTableRow" id=divFilename>
 					<div class="divTableCell">Filename</div>
-					<div class="divTableCell"><input id=txtFilename onchange="originalfilename=txtFilename.value" size=30 value=''></div>
-					<div class="divTableCell" style="color:#FF851d">(This is stored in cleartext - change if sensitive)
+					<div class="divTableCell"><input id=txtFilename onchange="originalfilename=txtFilename.value.replace(/[^A-Za-z0-9\-\_\.]/g, '');" size=30 value=''></div>
+					<div class="divTableCell" style="color:#FF851d">(This is stored in cleartext - please change if sensitive)
 					</div>
 				</div>
 				<div class="divTableRow">
@@ -147,7 +147,8 @@
 
 	<div class="container" id=divDecrypt style="display:none">
 		<h2>Decrypt a File</h2>
-		<p>Filesize: <b id="filesize">pending...</b></p>
+		<p>Filename: <b id=bFilename></b></p>
+		<p>Filesize: <b id=bFilesize>pending...</b></p>
 
 		<div class="divTable">
 			<div class="divTableBody">
@@ -162,6 +163,7 @@
 		<p> </p>
 		<div>
 			<button id=btnDecrypt onclick=javascript:decryptfile();>Download & Decrypt File</button> 
+			<button id=btnAbuse onclick=javascript:reportabuse();>Report abuse</button> 
 			<span id="spnDecstatus"></span>
 			<br>
 			<div id=divDecryptmessage style="display:none">
@@ -177,7 +179,9 @@
 
 		<p> </p>
 		<div>
-			<a id=aDeleteFile hidden><button onclick=javascript:deletefile();>Delete File</button></a>
+			<div id=aDeleteFile hidden><button onclick=javascript:deletefile();>Delete File</button> 
+				<br>
+				 <span>(Please delete immediately if you think this file is malicious)</span></div>
 		</div>
 	</div>
 
