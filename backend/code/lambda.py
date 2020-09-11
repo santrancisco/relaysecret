@@ -13,6 +13,8 @@ from urllib.parse import urlsplit, urlunsplit
 bkt = os.environ['BUCKETNAME']
 seed = os.environ['SEED']
 appurl = os.environ['APPURL']
+# Set the max object size..
+maxobjectsize = 30000000
 
 def getposturl(expiretime):
     try:
@@ -27,7 +29,7 @@ def getposturl(expiretime):
     conditions = [
         {"acl": "private"},
         {"content-type":"text/plain"},
-        ["content-length-range", 1, 30000000],
+        ["content-length-range", 1, maxobjectsize],
         ["starts-with", "$x-amz-meta-tag", ""]
     ]
     
@@ -43,10 +45,16 @@ def getposturl(expiretime):
 def getobj(key):
     s3 = boto3.client('s3')
     response = s3.head_object(Bucket=bkt, Key=key)
-    size = response['ContentLength']
-    print(size)
+    objsize = response['ContentLength']
+    objname = ""
+    try:
+        filemetadata = json.loads(response['ResponseMetadata']['HTTPHeaders']['x-amz-meta-tag'])
+        objname = filemetadata["name"]
+    except:
+        objname = "unknown-file-name"
     return {
-        "objsize":size,
+        "objsize":objsize,
+        "objname": objname,
         "signedurl": s3.generate_presigned_url(
         'get_object',
         Params={'Bucket': bkt,
@@ -61,8 +69,7 @@ def deleteobj(key):
         Bucket=bkt,
         Key=key)
 
-# This is our lambda handler. apigateway will proxy all events to this lambda
-# See https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
+#https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
 def app_handler(event, context):
     print ("Starting")
     try:
@@ -92,6 +99,7 @@ def app_handler(event, context):
          # /gettoken/{1-5}
         try:
             expiretime=int(path[10])
+            if (expiretime > 5): expiretime = 5
         except:
             expiretime=1
         try:
@@ -109,14 +117,13 @@ def app_handler(event, context):
     elif(deleteurlmatch.match(path)):
         body = deleteobj(path[8:])
         statuscode = 200
-    # Ignore the rest
     return {
         "statusCode": statuscode,
         "headers": headers,
         "body"  : json.dumps(body)
     }  
 
-# Our main is purely for debug, we can run this locally to retrieve a POST signed URL.
+# Our debug main - We use this to test things locally as it's not used by lambda function.
 if __name__ == '__main__':
     try:
         expiretime=int(sys.argv[1])
@@ -128,7 +135,8 @@ if __name__ == '__main__':
     resp['fields']['file'] = '@{key}'.format(key="kb.jpg")
     form_values = "  ".join(["-F {key}={value} ".format(key=key, value=value)
                         for key, value in resp['fields'].items()])
-
+    # Construct a curl command to upload an image kb.jpg file to S3 :) 
     print('curl command: \n')
     print('curl -v {form_values} {url}'.format(form_values=form_values, url=resp['url']))
+    print (getobj("1day/22412b21be8d50e23387b68eedb5da66ab4f2fa61f757ca12896e0133f4f1d15"))
     print('')
