@@ -20,8 +20,12 @@ try {
     if (objurl != undefined) {
         switchdiv('decrypt');
         getMetadata(objurl);
+    } else {
+        btnDecrypt.disabled = true;
     }
-} catch{ }
+} catch{ 
+    btnDecrypt.disabled = true;
+}
 
 
 function uuidv4() {
@@ -216,6 +220,9 @@ function switchdiv(t) {
         divDecrypt.style.display = 'block';
         encryptemessagemode = false;
         originalfilename = "plaintext.txt";
+        if (objmetadata == null){
+
+        }
 
         btnDivEncrypt.disabled = false;
         btnDivDecrypt.disabled = true;
