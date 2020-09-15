@@ -190,6 +190,13 @@ function copyURI(evt) {
     });
 }
 
+
+function copytextarea() {
+    let textarea = document.getElementById("textareaDecryptmessage");
+    textarea.select();
+    document.execCommand("copy");
+  }
+
 function switchdiv(t) {
     if (t == 'encryptfile') {
         divEncrypt.style.display = 'block';
@@ -454,7 +461,7 @@ async function decryptfile() {
     spnDecstatus.classList.remove("redspan");
     spnDecstatus.classList.add("greenspan");
     spnDecstatus.innerHTML = '<p>File decrypted.</p>';
-    aDecsavefile.hidden = false;
+    divDecsavefile.hidden = false;
     aDeleteFile.hidden = false;
     // If this is a message send in browser, show it.
     body.classList.remove("loading");
