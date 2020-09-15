@@ -25,6 +25,9 @@ try {
     }
 } catch{ 
     btnDecrypt.disabled = true;
+    spnDecstatus.classList.remove("greenspan");
+    spnDecstatus.classList.add("redspan");
+    spnDecstatus.innerHTML = '<p>Something went wrong. Please try again later.</p>';
 }
 
 
@@ -109,7 +112,7 @@ function uploadToS3(expire, bytearray) {
                             + "<span style='color: #0074D9;'>" + data.fields.key + "</span>"
                             + "#"
                             + "<span style='color: #FF851B;'>" + tempkey + "</span>"
-                            spandownloadurl.innerHTML = "<a style='color:#303030' href='" + downloadurl + "' onclick='copyURI(event)'>" + decoratedeurl + "</a> (Click to copy)"
+                            spandownloadurl.innerHTML = "<a style='color: inherit;' href='" + downloadurl + "' onclick='copyURI(event)'>" + decoratedeurl + "</a> (Click to copy)"
                         span_objname.innerText = data.fields.key
                         span_keymat.innerText = tempkey
                         divEncryptResult.style.display = "block";
@@ -297,6 +300,7 @@ function displayfile() {
     } else if (mode == 'decrypt') {
         spndecfilename.textContent = objFile.name + ' (' + s + ')';
     }
+    btnEncrypt.disabled = false;
 }
 
 function readfile(file) {
@@ -453,6 +457,8 @@ async function decryptfile() {
     aDeleteFile.hidden = false;
     // If this is a message send in browser, show it.
     body.classList.remove("loading");
+    divDecryptInfo.style.display = "none";
+    divDecryptResult.style.display = "";
     if (encryptemessagemode)
     {
         textareaDecryptmessage.value =  new TextDecoder("utf-8").decode(plaintextbytes)
