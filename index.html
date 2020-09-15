@@ -9,7 +9,7 @@
 	</style>
 	<link href="./assets/main.css" rel="stylesheet" type="text/css" />
 	<meta name="viewport" content="maximum-scale=1.0, user-scalable=0" />
-	<link rel="stylesheet" href="./assets/light.min.css">
+	<link rel="stylesheet" href="./assets/dark.min.css">
 </head>
 
 <body>
@@ -43,7 +43,7 @@
 		</div>
 	</div>
 
-
+	
 	<hr>
 
 	<div class="container" id=divEncrypt style="display:none">
@@ -60,8 +60,8 @@
 			<div>
 				<div class=dropzone id="encdropzone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);"
 					ondragend="dragend_handler(event);">
-					<p>Drag and drop the file to be encrypted into this dropzone, or click <a
-							onclick=javascript:encfileElem.click();>here</a> to select file.</p>
+					<p>Drag and drop the file to be encrypted into this dropzone, or <a
+							onclick=javascript:encfileElem.click();><b>click here</b></a> to select file.</p>
 					<p><b><span id=spnencfilename></span></b></p>
 				</div>
 				<input type="file" id="encfileElem" style="display:none" onchange="selectfile(this.files)">
@@ -187,7 +187,7 @@
 				</div>
 			</div>
 			<br>
-			<div id=divDecsavefile hidden><button id=bCopyText onclick="copytextarea()" hidden>Copy text</button><a id=aDecsavefile onclick="javascript:postdownloadaction()"><button>Save Decrypted File</button></a> </div>
+			<div id=divDecsavefile hidden><button id=bCopyText onclick="copytextarea()" hidden>Copy text</button><a id=aDecsavefile onclick="javascript:postdownloadaction()"><button id=bDownloadDecFile>Save Decrypted File</button></a> </div>
 			<p></p>
 			<div id=aDeleteFile hidden><button onclick="deletefile()">Delete File</button> 
 			<span>(Please delete immediately if you think this file is malicious)</span></div>
