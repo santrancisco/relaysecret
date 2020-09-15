@@ -122,14 +122,16 @@
 	</div>
 
 	<div class="container" id=divEncryptResult style="display:none">
-		<div class="divTableBody">
-			<div class="divTableRow">
-				<p><b>Download URL:
-					<br>
-					<h3><span id=spandownloadurl></span></h3>
-				</b></p>
+		<div class="container">
+				<h2>Download URL:</h2><br>
+				<i>Only share this url to someone you trust.</i>
+				<br>
+				<h3><b><span id=spandownloadurl></span></b></h3>
+				<br>
+				<button id=bShowExtraInfo onclick="showmoredecryptioninfo();">Explain this URL</button>
 			</div>
-			<div class="divTableRow"></div>
+		</div>
+		<div class="divTableBody" id=divExtraDecResult style="display:none">
 			<div class="divTableRow">
 				<p style="color: #0074D9;">Encrypted obj: <span id="span_objname"></span></p>
 				<p style="color: #FF851B;">Key material: <span id="span_keymat"></span></p>
@@ -138,12 +140,16 @@
 				<p>
 					<b>FAQ: </b> 
 					<br>
-					<p><i>Does the server know the master password/key?</i> 
-						<br>No, the key material to construct the AES password is behind anchortag (#) which never leave your browser. You can find more information in <a
-							href="https://en.wikipedia.org/wiki/URI_fragment">wikipedia (URI fragment)</a> and on official <a href="https://tools.ietf.org/html/rfc1808#section-2.4.1">RFC1808</a></b></p>
-					<p><i>Is the file/message uploaded to the server in plaintext?</i> 
-						<br> No, never. Whether you choose to use additional password or not, the message/file is always encrypted with AES256 in your browser. The encrypted data is uploaded&stored on Amazon S3. You can verify this by inspecting the network traffic in browser Developer Tool.</p>
-					
+					<p><i>Does your server know my master password/key?</i> 
+						<br>No, the key material used to construct the AES password is behind an anchortag (#) which never leave your browser. You can find more information in <a
+							href="https://en.wikipedia.org/wiki/URI_fragment">wikipedia (URI fragment)</a> and on official <a href="https://tools.ietf.org/html/rfc1808#section-2.4.1">RFC1808</a>. Ontop of that, you can add your own password to further protect the master password/key used to encrypt the data.</b>
+					</p>
+					<p><i>Is this file or message uploaded to the server in plaintext?</i> 
+						<br> No, never. Whether you choose to use password or not, the message(or file) is always encrypted with AES256 inside your browser. The encrypted data is then uploaded & stored on Amazon S3. You can verify this by inspecting the network traffic in browser Developer Tool.
+					</p>
+					<p><i>How could I trust you?</i> 
+						<br> The source code for the entire site and backend is opensourced. You can review it and if you don't trust my deployment, feel free to roll your own. It is very cheap to run and you most likely won't use up the AWS free tier.
+					</p>
 				</p>
 			</div>
 		</div>
