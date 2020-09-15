@@ -470,6 +470,7 @@ async function decryptfile() {
     if (encryptemessagemode)
     {
         textareaDecryptmessage.value =  new TextDecoder("utf-8").decode(plaintextbytes)
+        bCopyText.hidden = false;
         divDecryptmessage.style.display = "";
         if (deleteondownload) {
             deletefile();
