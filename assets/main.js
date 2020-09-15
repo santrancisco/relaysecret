@@ -55,6 +55,7 @@ function getMetadata(objurl) {
             body.classList.remove("loading");
             if (response.status == 404) {
                 bFilename.innerText = "Failed to fetch metadata - File may no longer exist.";
+                btnDecrypt.disabled = true;
                 return
             }
             response.json().then(
