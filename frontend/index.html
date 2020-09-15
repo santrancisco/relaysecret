@@ -8,6 +8,7 @@
 		@import url(./assets/font.css);
 	</style>
 	<link href="./assets/main.css" rel="stylesheet" type="text/css" />
+	<meta name="viewport" content="maximum-scale=1.0, user-scalable=0" />
 	<link rel="stylesheet" href="./assets/light.min.css">
 </head>
 
@@ -176,12 +177,13 @@
 				<h3>Decrypted message</h3>
 				<div>
 					<textarea id="textareaDecryptmessage" maxlength="500"></textarea>
+					
 				</div>
 			</div>
 			<br>
-			<div id=aDecsavefile onclick="javascript:postdownloadaction();" hidden><button>Save Encrypted File</button></div>
+			<div id=divDecsavefile hidden><button onclick="copytextarea()">Copy text</button><a id=aDecsavefile onclick="javascript:postdownloadaction()"> <button>Save Decrypted File</button></a> </div>
 			<p></p>
-			<div id=aDeleteFile hidden><button onclick=javascript:deletefile();>Delete File</button> 
+			<div id=aDeleteFile hidden><button onclick="deletefile()">Delete File</button> 
 			<span>(Please delete immediately if you think this file is malicious)</span></div>
 		</div>
 	</div>
