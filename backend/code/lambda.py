@@ -6,6 +6,7 @@ import secrets
 import os
 import json
 import re
+import urllib.request
 from urllib.parse import urlsplit, urlunsplit
 
 # Change BUCKET_NAME to your bucket name and
@@ -13,6 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 bkt = os.environ['BUCKETNAME']
 seed = os.environ['SEED']
 appurl = os.environ['APPURL']
+vtapikey = os.environ['VTAPIKEY']
 # Set the max object size..
 maxobjectsize = 30000000
 
@@ -69,6 +71,39 @@ def deleteobj(key):
         Bucket=bkt,
         Key=key)
 
+def checkvirus(filehash):
+    if (vtapikey == "none"):
+        return {'status_code':404}
+    BASEURL = "https://www.virustotal.com/vtapi/v2/"
+    VERSION = "0.0.9"
+    API_KEY = vtapikey
+    headers = {
+            "Accept-Encoding": "identity",
+            "User-Agent": f"gzip,  virustotal-python {VERSION}",
+    }
+    params = {"apikey": API_KEY,"resource":filehash}   
+    req = urllib.request.Request(f"{BASEURL}file/report?apikey={API_KEY}&resource={filehash}", headers=headers)
+    rawresponse = urllib.request.urlopen(req).read()
+    resp = json.loads(rawresponse.decode("utf-8"))
+    if (resp['response_code'] != 1):
+        return dict(
+                sha1 = filehash,
+                positives = 0,
+                total = 0,
+                vtlink = f"https://www.virustotal.com/gui/file/{filehash}",
+                detect = False,
+                error = False
+            )
+    print (resp)
+    return dict(
+                sha1 = filehash,
+                positives = resp['positives'],
+                total = resp['total'],
+                vtlink = resp['permalink'],
+                detect = True if resp['positives'] > 0 else False,
+                error = False
+            )
+
 #https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
 def app_handler(event, context):
     print ("Starting")
@@ -92,7 +127,6 @@ def app_handler(event, context):
         'Access-Control-Allow-Origin': clean_path,
         'Content-Type': "application/json"
     }
-    print (headers)
     statuscode = 404
     body = {"404":True}
     if path.startswith("/gettoken/"):
@@ -104,6 +138,12 @@ def app_handler(event, context):
             expiretime=1
         try:
             body = getposturl(expiretime)
+            statuscode = 200
+        except:
+            pass
+    elif (len(path)==46 and path.startswith("/sha1/")):
+        try:
+            body = checkvirus(path[6:])
             statuscode = 200
         except:
             pass
@@ -122,21 +162,22 @@ def app_handler(event, context):
         "headers": headers,
         "body"  : json.dumps(body)
     }  
-
+from pprint import pprint
 # Our debug main - We use this to test things locally as it's not used by lambda function.
 if __name__ == '__main__':
-    try:
-        expiretime=int(sys.argv[1])
-    except:
-        expiretime=5
-    print(expiretime)
-    resp=getposturl(expiretime)
-    print (resp)
-    resp['fields']['file'] = '@{key}'.format(key="kb.jpg")
-    form_values = "  ".join(["-F {key}={value} ".format(key=key, value=value)
-                        for key, value in resp['fields'].items()])
-    # Construct a curl command to upload an image kb.jpg file to S3 :) 
-    print('curl command: \n')
-    print('curl -v {form_values} {url}'.format(form_values=form_values, url=resp['url']))
-    print (getobj("1day/22412b21be8d50e23387b68eedb5da66ab4f2fa61f757ca12896e0133f4f1d15"))
-    print('')
+    # try:
+    #     expiretime=int(sys.argv[1])
+    # except:
+    #     expiretime=5
+    # print(expiretime)
+    # resp=getposturl(expiretime)
+    # print (resp)
+    # resp['fields']['file'] = '@{key}'.format(key="kb.jpg")
+    # form_values = "  ".join(["-F {key}={value} ".format(key=key, value=value)
+    #                     for key, value in resp['fields'].items()])
+    # # Construct a curl command to upload an image kb.jpg file to S3 :) 
+    # print('curl command: \n')
+    # print('curl -v {form_values} {url}'.format(form_values=form_values, url=resp['url']))
+    # print (getobj("1day/22412b21be8d50e23387b68eedb5da66ab4f2fa61f757ca12896e0133f4f1d15"))
+    # print('')
+    print(json.dumps(checkvirus("3395856ce81f2b7382dee72602f798b642f14140")))

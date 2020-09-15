@@ -26,6 +26,10 @@ variable "APPURL" {
     default="devmode"
 }
 
+variable "VTAPIKEY" {
+    default="none"
+}
+
 module "relaysecret" {
   source             = "./modules/relaysecret"
   deploymentname     = var.deploymentname
@@ -33,6 +37,7 @@ module "relaysecret" {
   relaysecrethandler = "lambda.app_handler"
   envvar = {
     "APPURL"              = var.APPURL
+    "VTAPIKEY"            = var.VTAPIKEY
   }
 }
 
