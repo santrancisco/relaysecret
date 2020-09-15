@@ -486,3 +486,8 @@ function postdownloadaction(){
         return
     }
 }
+
+function showmoredecryptioninfo(){
+    divExtraDecResult.style.display="block";
+    bShowExtraInfo.style.display="none";
+}
