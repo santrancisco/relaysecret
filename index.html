@@ -4,6 +4,7 @@
 <head>
 	<meta charset="utf-8">
 	<title>Send files safely, encryption done in browser.</title>
+	<meta http-equiv="Content-Security-Policy" content="script-src 'self' ">
 	<style type="text/css">
 		@import url(./assets/font.css);
 	</style>
@@ -27,14 +28,14 @@
 				</div>
 				<div class="divTableRow">
 					<div class="divTableCell" style="float: left;">
-							<button id="btnDivEncMes" onClick="javascript:switchdiv('encryptmessage');">
+							<button id="btnDivEncMes">
 								Encrypt a Message
 							</button>
-							<button id="btnDivEncrypt" onClick="javascript:switchdiv('encryptfile');">
+							<button id="btnDivEncrypt">
 								Encrypt a File</button>
-							<button id="btnDivDecrypt" onClick="javascript:switchdiv('decrypt');">
+							<button id="btnDivDecrypt">
 								Decrypt a File</button>
-							<button id="btnRefresh" onClick="javascript:location.reload();">
+							<button id="btnRefresh">
 								Refresh Page
 							</button>
 					</div>
@@ -50,7 +51,7 @@
 		<div id=divEncryptMessage>
 			<h2>Encrypt a message</h2>
 			<div>
-				<textarea placeholder="please enter your secret message here..." onfocus="btnEncrypt.disabled=false" id="textareaEncryptmessage" name="secret" maxlength="500"></textarea>
+				<textarea placeholder="please enter your secret message here..." id="textareaEncryptmessage" name="secret" maxlength="500"></textarea>
 			</div>
 		</div>
 		<div id=divEncryptFile>
@@ -58,13 +59,12 @@
 			<p>To encrypt and send a file, drop the file (Max 30Mb)</p>
 			<p><u style="color:#FF851d">Note: Filename is not encrypted! Change it if you must.</u></p>
 			<div>
-				<div class=dropzone id="encdropzone" ondrop="drop_handler(event);" ondragover="dragover_handler(event);"
-					ondragend="dragend_handler(event);">
-					<p>Drag and drop the file to be encrypted into this dropzone, or <a
-							onclick=javascript:encfileElem.click();><b>click here</b></a> to select file.</p>
+				<div class=dropzone id="encdropzone">
+					<p>Drag and drop the file to be encrypted into this dropzone, or 
+						<a id=adropzone ><b>click here</b></a> to select file.</p>
 					<p><b><span id=spnencfilename></span></b></p>
 				</div>
-				<input type="file" id="encfileElem" style="display:none" onchange="selectfile(this.files)">
+				<input type="file" id="encfileElem" style="display:none">
 			</div>
 		</div>
 		<p></p>
@@ -72,12 +72,12 @@
 			<div class="divTableBody">
 				<div class="divTableRow" id=divFilename>
 					<div class="divTableCell">Filename</div>
-					<div class="divTableCell"><input id=txtFilename onchange="originalfilename=txtFilename.value.replace(/[^A-Za-z0-9\-\_\.]/g, '');" size=30 value=''></div>
+					<div class="divTableCell"><input id=txtFilename size=30 value=''></div>
 				</div>
 				<div class="divTableRow">
 					<div class="divTableCell">Password</div>
 					<div class="divTableCell"><input id=txtEncpassphrase size=30 value=''></div>
-					<div class="divTableCell">(For extra security but file will be encrypted regardless)</div>
+					<div class="divTableCell">(For extra security only. File will be encrypted regardless)</div>
 				</div>
 				<div class="divTableRow">
 					<div class="divTableCell">Expire in: </div>
@@ -101,7 +101,7 @@
 		<div class="divTable">
 			<div class="divTableBody">
 				<div class="divTableRow">
-					<div class="divTableCell"><button id=btnEncrypt onclick=javascript:encryptfile(); disabled>Encrypt & Upload</button></div>
+					<div class="divTableCell"><button id=btnEncrypt disabled>Encrypt & Upload</button></div>
 					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false">
 					<label for="inputdeleteondownload"> Delete On Download</label><br>
 				</div>
@@ -128,7 +128,7 @@
 				<br>
 				<h3><b><span id=spandownloadurl></span></b></h3>
 				<br>
-				<button id=bShowExtraInfo onclick="showmoredecryptioninfo();">Explain this URL</button>
+				<button id=bShowExtraInfo>Explain this URL</button>
 			</div>
 		</div>
 		<div class="divTableBody" id=divExtraDecResult style="display:none">
@@ -173,7 +173,7 @@
 			
 			<p> </p>
 			<div>
-				<button id=btnDecrypt onclick=javascript:decryptfile();>Download & Decrypt File</button> 
+				<button id=btnDecrypt>Download & Decrypt File</button> 
 				
 				<br>
 			</div>
@@ -187,9 +187,9 @@
 				</div>
 			</div>
 			<br>
-			<div id=divDecsavefile hidden><button id=bCopyText onclick="copytextarea()" hidden>Copy text</button><a id=aDecsavefile onclick="javascript:postdownloadaction()"><button id=bDownloadDecFile>Save Decrypted File</button></a> </div>
+			<div id=divDecsavefile hidden><button id=bCopyText hidden>Copy text</button><a id=aDecsavefile><button id=bDownloadDecFile>Save Decrypted File</button></a> </div>
 			<p></p>
-			<div id=aDeleteFile hidden><button onclick="deletefile()">Delete File</button> 
+			<div id=aDeleteFile hidden><button id=bDeleteFile>Delete File</button> 
 			<span>(Please delete immediately if you think this file is malicious)</span></div>
 		</div>
 	</div>
