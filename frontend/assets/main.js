@@ -15,6 +15,28 @@ var objmetadata = null;
 var downloadurl = null;
 var infected = false;
 
+// Set onclick events for our page so we can lock it down using CSP.
+btnDivEncMes.onclick = function(){switchdiv('encryptmessage')};
+btnDivEncrypt.onclick = function(){switchdiv('encryptfile')};
+btnDivDecrypt.onclick = function(){switchdiv('decrypt')};
+btnRefresh.onclick = function(){window.location.reload(false)};
+btnEncrypt.onclick = function(){encryptfile()};
+btnDecrypt.onclick = function(){decryptfile()};
+textareaEncryptmessage.onfocus = function(){btnEncrypt.disabled=false};
+encdropzone.ondrop = function(){drop_handler(event)};
+encdropzone.ondragover=function(){dragover_handler(event)};
+encdropzone.ondragend=function(){dragend_handler(event)};
+adropzone.onclick=function(){encfileElem.click()};
+encfileElem.onchange = function(){selectfile(this.files)};
+txtFilename.onchange = function(){originalfilename=txtFilename.value.replace(/[^A-Za-z0-9\-\_\.]/g, '')};
+bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
+bCopyText.onclick = function(){copytextarea()};
+aDecsavefile.onclick = function(){javascript:postdownloadaction()};
+bDeleteFile.onclick = function(){deletefile()};
+
+
+//---------------------------------------------------//
+
 switchdiv('encryptmessage');
 try {
     objurl = getUrlVars()["obj"]
@@ -144,7 +166,8 @@ async function uploadToS3(expire, bytearray) {
                             + "<span style='color: #0074D9;'>" + data.fields.key + "</span>"
                             + "#"
                             + "<span style='color: #FF851B;'>" + tempkey + "</span>"
-                            spandownloadurl.innerHTML = "<a style='color: inherit;' href='" + downloadurl + "' onclick='copyURI(event)'>" + decoratedeurl + "</a> (Click to copy)"
+                            spandownloadurl.innerHTML = "<a id=aCopyFinalURL style='color: inherit;' href='" + downloadurl + "'>" + decoratedeurl + "</a> (Click to copy)"
+                            aCopyFinalURL.onclick=function(){copyURI(event)};
                         span_objname.innerText = data.fields.key
                         span_keymat.innerText = tempkey
                         divEncryptResult.style.display = "block";
