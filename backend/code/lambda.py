@@ -6,6 +6,7 @@ import secrets
 import os
 import json
 import re
+import datetime
 import urllib.request
 from urllib.parse import urlsplit, urlunsplit
 
@@ -47,6 +48,21 @@ def getposturl(expiretime):
 def getobj(key):
     s3 = boto3.client('s3')
     response = s3.head_object(Bucket=bkt, Key=key)
+
+    expstr = response["Expiration"].split('"')[1].split(',')[1].strip()
+    exp = datetime.datetime.strptime(expstr,'%d %b %Y %H:%M:%S %Z')  
+    print (response['Expiration'])
+    # When an object is expired, it is put on a queue to get deleted by AWS. 
+    # This obviously might take sometimes so just incase AWS drops the ball, we will remove the file anyway.
+    if (exp < datetime.datetime.now()):
+        print("Object was expired, Deleting it now")
+        deleteobj(key)
+        return {
+            "objsize": 0,
+            "objname": "File removed",
+            "signedurl": ""
+        }
+    
     objsize = response['ContentLength']
     objname = ""
     try:
@@ -165,6 +181,7 @@ def app_handler(event, context):
 from pprint import pprint
 # Our debug main - We use this to test things locally as it's not used by lambda function.
 if __name__ == '__main__':
+    ### Form a POST curl request that would let me upload an image to relaysecret bucket.
     # try:
     #     expiretime=int(sys.argv[1])
     # except:
@@ -180,4 +197,7 @@ if __name__ == '__main__':
     # print('curl -v {form_values} {url}'.format(form_values=form_values, url=resp['url']))
     # print (getobj("1day/22412b21be8d50e23387b68eedb5da66ab4f2fa61f757ca12896e0133f4f1d15"))
     # print('')
+
+    # Check Sha1 for eicar file.
     print(json.dumps(checkvirus("3395856ce81f2b7382dee72602f798b642f14140")))
+    
