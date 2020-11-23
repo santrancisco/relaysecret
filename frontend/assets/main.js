@@ -69,7 +69,7 @@ function getUrlVars() {
     return vars;
 }
 
-function getMetadata(objurl) {
+async function getMetadata(objurl) {
     var body = document.body;
     body.classList.add("loading");
     let url = lambdaurl + objurl;
