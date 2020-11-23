@@ -46,7 +46,7 @@ try {
     } else {
         btnDecrypt.disabled = true;
     }
-} catch{ 
+} catch (error) { 
     btnDecrypt.disabled = true;
     spnDecstatus.classList.remove("greenspan");
     spnDecstatus.classList.add("redspan");
@@ -198,7 +198,7 @@ async function downloadFromS3() {
     console.log(response.headers.get("x-amz-meta-tag"))
     try {
         filemetadata = JSON.parse(response.headers.get("x-amz-meta-tag"));
-    } catch {
+    } catch (error) {
         filemetadata = {name:"plain.dec",deleteondownload:false};
     }
     if (filemetadata.name != "") {

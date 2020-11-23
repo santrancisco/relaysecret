@@ -9,6 +9,8 @@ import re
 import datetime
 import urllib.request
 from urllib.parse import urlsplit, urlunsplit
+import hmac
+import hashlib
 
 # Change BUCKET_NAME to your bucket name and
 # KEY_NAME to the name of a file in the directory where you'll run the curl command.
@@ -16,6 +18,8 @@ bkt = os.environ['BUCKETNAME']
 seed = os.environ['SEED']
 appurl = os.environ['APPURL']
 vtapikey = os.environ['VTAPIKEY']
+hmacsecret = os.environ['HMACSECRET']
+
 # Set the max object size..
 maxobjectsize = 30000000
 
@@ -120,6 +124,22 @@ def checkvirus(filehash):
                 error = False
             )
 
+# Validate timestamp using hmac
+def validatetime(secret,text):
+    try:
+        key = secret.encode('utf-8')
+        data = text.split(".")[0].encode('utf-8')
+        t = int(data)
+        print(text)
+        if( int(time.time()) < t):
+            signature = text.split(".")[1].lower()
+            sig = hmac.new(key=key, msg=data, digestmod=hashlib.sha256 ).hexdigest().lower()
+            print(sig)
+            if signature == sig :
+                return True
+    except:
+        pass
+    return False
 #https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
 def app_handler(event, context):
     print ("Starting")
@@ -144,19 +164,32 @@ def app_handler(event, context):
         'Content-Type': "application/json"
     }
     statuscode = 404
-    body = {"404":True}
+    body = {"status_code":404}
     if path.startswith("/gettoken/"):
-         # /gettoken/{1-5}
-        try:
-            expiretime=int(path[10])
-            if (expiretime > 5): expiretime = 5
-        except:
-            expiretime=1
-        try:
-            body = getposturl(expiretime)
-            statuscode = 200
-        except:
-            pass
+        expiredurl = True
+        if (hmacsecret == "none"):
+            expiredurl = False
+        elif (event["queryStringParameters"] != None and "exp" in event["queryStringParameters"]):
+            signedtimestamp = event["queryStringParameters"]["exp"]
+            if (validatetime(hmacsecret,signedtimestamp)):
+                expiredurl = False
+        # If hmacsecret is not set or the url is not yet expired, generate token.
+        if (not expiredurl):
+            # /gettoken/{1-5}
+            try:
+                expiretime=int(path[10])
+                if (expiretime > 5): expiretime = 5
+            except:
+                expiretime=1
+            try:
+                body = getposturl(expiretime)
+                statuscode = 200
+            except:
+                pass
+        else:
+            statuscode = 403
+            body = {"err":"Invalid exp value"}
+        
     elif (len(path)==46 and path.startswith("/sha1/")):
         try:
             body = checkvirus(path[6:])
