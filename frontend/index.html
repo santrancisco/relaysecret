@@ -29,12 +29,12 @@
 				<div class="divTableRow">
 					<div class="divTableCell" style="float: left;">
 							<button id="btnDivEncMes">
-								Encrypt a Message
+								Encrypt a message
 							</button>
 							<button id="btnDivEncrypt">
 								Encrypt a File</button>
 							<button id="btnDivDecrypt">
-								Decrypt a File</button>
+								Decrypt</button>
 							<button id="btnRefresh">
 								Refresh Page
 							</button>
@@ -64,7 +64,7 @@
 						<a id=adropzone ><b>click here</b></a> to select file.</p>
 					<p><b><span id=spnencfilename></span></b></p>
 				</div>
-				<input type="file" id="encfileElem" style="display:none">
+				<input type="file" id="encfileElem" style="display:none" autocomplete='off'>
 			</div>
 		</div>
 		<p></p>
@@ -72,11 +72,11 @@
 			<div class="divTableBody">
 				<div class="divTableRow" id=divFilename>
 					<div class="divTableCell">Filename</div>
-					<div class="divTableCell"><input id=txtFilename size=30 value=''></div>
+					<div class="divTableCell"><input id=txtFilename size=30 value='' autocomplete='off'></div>
 				</div>
 				<div class="divTableRow">
 					<div class="divTableCell">Password</div>
-					<div class="divTableCell"><input id=txtEncpassphrase size=30 value=''></div>
+					<div class="divTableCell"><input id=txtEncpassphrase size=30 value='' autocomplete='off'></div>
 					<div class="divTableCell">(For extra security only. File will be encrypted regardless)</div>
 				</div>
 				<div class="divTableRow">
@@ -102,7 +102,7 @@
 			<div class="divTableBody">
 				<div class="divTableRow">
 					<div class="divTableCell"><button id=btnEncrypt disabled>Encrypt & Upload</button></div>
-					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false">
+					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false" autocomplete='off'>
 					<label for="inputdeleteondownload"> Delete On Download</label><br>
 				</div>
 				<div class="divTableRow">
@@ -165,7 +165,7 @@
 				<div class="divTableBody">
 					<div class="divTableRow">
 						<div class="divTableCell">Password</div>
-						<div class="divTableCell"><input id=txtDecpassphrase size=30 value=''></div>
+						<div class="divTableCell"><input id=txtDecpassphrase size=30 value='' autocomplete='off'></div>
 						<div class="divTableCell">(if provided by sender)</div>
 					</div>
 				</div>
