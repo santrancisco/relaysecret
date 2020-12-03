@@ -21,7 +21,7 @@ vtapikey = os.environ['VTAPIKEY']
 hmacsecret = os.environ['HMACSECRET']
 
 # Set the max object size..
-maxobjectsize = 30000000
+maxobjectsize = 200000000
 
 def getposturl(expiretime):
     try:
