@@ -30,6 +30,10 @@ variable "VTAPIKEY" {
     default="none"
 }
 
+variable "HMACSECRET" {
+    default="none"
+}
+
 module "relaysecret" {
   source             = "./modules/relaysecret"
   deploymentname     = var.deploymentname
@@ -38,6 +42,7 @@ module "relaysecret" {
   envvar = {
     "APPURL"              = var.APPURL
     "VTAPIKEY"            = var.VTAPIKEY
+    "HMACSECRET"          = var.HMACSECRET
   }
 }
 
