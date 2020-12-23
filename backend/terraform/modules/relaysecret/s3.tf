@@ -49,6 +49,23 @@ resource "aws_s3_bucket" "bucket" {
     }
   }
 
+  lifecycle_rule {
+    id      = "10day"
+    enabled = true
+    prefix = "10day/"
+    expiration {
+      days = 10
+    }
+  }
+
+  lifecycle_rule {
+    id      = "catchall"
+    enabled = true
+    expiration {
+      days = 11
+    }
+  }
+
    cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET","PUT", "POST"]

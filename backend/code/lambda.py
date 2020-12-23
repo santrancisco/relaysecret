@@ -9,27 +9,37 @@ import re
 import datetime
 import urllib.request
 from urllib.parse import urlsplit, urlunsplit
+from botocore.client import Config
 import hmac
 import hashlib
 
 # Change BUCKET_NAME to your bucket name and
 # KEY_NAME to the name of a file in the directory where you'll run the curl command.
-bkt = os.environ['BUCKETNAME']
+# This backend can be easily tweaked to support multiple regions to conform with GDPR data storage requirement
+
+bktUS = os.getenv('BUCKETNAME',None)
+bktAU = os.getenv('BUCKETNAME_AU',None)
+bktEU = os.getenv('BUCKETNAME_EU',None)
+bkt = bktUS
+awsregionUS = "us-east-1"
+awsregionAU = "ap-southeast-2"
+awsregionEU = "eu-central-1"
+awsregion = awsregionUS
+
 seed = os.environ['SEED']
 appurl = os.environ['APPURL']
 vtapikey = os.environ['VTAPIKEY']
 hmacsecret = os.environ['HMACSECRET']
 
-# Set the max object size..
+# Set the max object size.. (200mb)
 maxobjectsize = 200000000
 
 def getposturl(expiretime):
     try:
         exp=int(expiretime)
     except:
-        exp=5
-
-    s3 = boto3.client('s3')
+        exp=10
+    s3 = boto3.client('s3',config=Config(region_name=awsregion, signature_version='s3v4'))
     fields = {
             "acl": "private",
             }
@@ -50,22 +60,25 @@ def getposturl(expiretime):
 
 
 def getobj(key):
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', config=Config(region_name=awsregion, signature_version='s3v4'))
     response = s3.head_object(Bucket=bkt, Key=key)
 
     expstr = response["Expiration"].split('"')[1].split(',')[1].strip()
     exp = datetime.datetime.strptime(expstr,'%d %b %Y %H:%M:%S %Z')  
-    print (response['Expiration'])
+
+    # LastModified already comes as datetime object, converting both to epoch and add the 
+    # extra neccessary seconds for expiration is much easier/quicker.
+    expiredays = int(re.search("[0-9]+",key)[0])
+    exactepochexpiretime = response["LastModified"].timestamp()+3600*24*expiredays
+    currentepochtime = datetime.datetime.now().timestamp()
+
+    print("{} compare with {}".format(currentepochtime,exactepochexpiretime))
     # When an object is expired, it is put on a queue to get deleted by AWS. 
     # This obviously might take sometimes so just incase AWS drops the ball, we will remove the file anyway.
-    if (exp < datetime.datetime.now()):
+    if (exactepochexpiretime < currentepochtime):
         print("Object was expired, Deleting it now")
         deleteobj(key)
-        return {
-            "objsize": 0,
-            "objname": "File removed",
-            "signedurl": ""
-        }
+        return None
     
     objsize = response['ContentLength']
     objname = ""
@@ -86,7 +99,7 @@ def getobj(key):
     }
 
 def deleteobj(key):
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', config=Config(region_name=awsregion, signature_version='s3v4'))
     return s3.delete_object(
         Bucket=bkt,
         Key=key)
@@ -114,7 +127,6 @@ def checkvirus(filehash):
                 detect = False,
                 error = False
             )
-    print (resp)
     return dict(
                 sha1 = filehash,
                 positives = resp['positives'],
@@ -127,14 +139,12 @@ def checkvirus(filehash):
 # Validate timestamp using hmac
 def validatetime(secret,text):
     try:
-        key = secret.encode('utf-8')
+        key = secret.encode('utf-8')    
         data = text.split(".")[0].encode('utf-8')
         t = int(data)
-        print(text)
         if( int(time.time()) < t):
             signature = text.split(".")[1].lower()
             sig = hmac.new(key=key, msg=data, digestmod=hashlib.sha256 ).hexdigest().lower()
-            print(sig)
             if signature == sig :
                 return True
     except:
@@ -142,7 +152,9 @@ def validatetime(secret,text):
     return False
 #https://www.serverless.com/framework/docs/providers/aws/events/apigateway/#example-lambda-proxy-event-default
 def app_handler(event, context):
-    print ("Starting")
+    global bkt
+    global awsregion
+    print ("Starting lambda")
     try:
         referer = event["headers"]["Referer"]
     except:
@@ -154,11 +166,22 @@ def app_handler(event, context):
         "statusCode": 200,
         "body"  : 'ok'
     }   
+    # If region urlparameter is set, switch target bucket
+    if (event["queryStringParameters"] != None and "region" in event["queryStringParameters"]):
+        bkt = bktUS
+        awsregion = awsregionUS
+        if event["queryStringParameters"]["region"] == "au":
+            awsregion = awsregionAU
+            bkt = bktAU
+        elif event["queryStringParameters"]["region"] == "eu":
+            awsregion = awsregionEU
+            bkt = bktEU
+    print("Target bucket is {}".format(bkt))
     split_url = urlsplit(referer)
     clean_path = split_url.scheme+"://"+split_url.netloc 
     
-    geturlmatch = re.compile("^/[0-9]day/[0-9a-fA-F]{64}$")  
-    deleteurlmatch = re.compile("^/delete/[0-9]day/[0-9a-fA-F]{64}$")  
+    geturlmatch = re.compile("^/[0-9]+day/[0-9a-fA-F]{64}$")  
+    deleteurlmatch = re.compile("^/delete/[0-9]+day/[0-9a-fA-F]{64}$")  
     headers = {
         'Access-Control-Allow-Origin': clean_path,
         'Content-Type': "application/json"
@@ -177,11 +200,13 @@ def app_handler(event, context):
         if (not expiredurl):
             # /gettoken/{1-5}
             try:
-                expiretime=int(path[10])
-                if (expiretime > 5): expiretime = 5
+                expiretime=int(path[10:])
+                if not ((expiretime in range(1,6) or expiretime == 10)):
+                    expiretime = 1
             except:
                 expiretime=1
-            try:
+
+            try:    
                 body = getposturl(expiretime)
                 statuscode = 200
             except:
@@ -199,7 +224,12 @@ def app_handler(event, context):
     elif(geturlmatch.match(path)):
         try :
             body = getobj(path[1:])
-            statuscode = 200
+            ## If the file is expired but not yet cleaned up by AWS, we are deleting it and return 404
+            if body == None:
+                statuscode = 404
+                body = {"status_code": 404}
+            else:    
+                statuscode = 200
         except:
             pass
 
@@ -228,9 +258,10 @@ if __name__ == '__main__':
     # # Construct a curl command to upload an image kb.jpg file to S3 :) 
     # print('curl command: \n')
     # print('curl -v {form_values} {url}'.format(form_values=form_values, url=resp['url']))
-    # print (getobj("1day/22412b21be8d50e23387b68eedb5da66ab4f2fa61f757ca12896e0133f4f1d15"))
+    print (getobj("1day/fc11258631342f88470638a8a30a076777ac2683882b13f37c0a2c361eb84279"))
     # print('')
 
     # Check Sha1 for eicar file.
-    print(json.dumps(checkvirus("3395856ce81f2b7382dee72602f798b642f14140")))
+    # print(json.dumps(checkvirus("3395856ce81f2b7382dee72602f798b642f14140")))
+    
     
