@@ -11,6 +11,8 @@
 	<link href="./assets/main.css" rel="stylesheet" type="text/css" />
 	<meta name="viewport" content="maximum-scale=1.0, user-scalable=0" />
 	<link rel="stylesheet" href="./assets/dark.min.css">
+
+	<link href="./assets/tooltip.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body>
@@ -55,7 +57,7 @@
 			</div>
 		</div>
 		<div id=divEncryptFile>
-			<h2>Encrypt a File</h2>
+			<h2 ><span data-tooltip title="If you need to send more than 1 file, please compress them into a single zip file.">Encrypt a File</span></h2>
 			<p>To encrypt and send a file, drop the file (Max 200Mb)</p>
 			<p><u style="color:#FF851d">Note: Filename is not encrypted! Change it if you must.</u></p>
 			<div>
@@ -71,16 +73,22 @@
 		<div class="divTable">
 			<div class="divTableBody">
 				<div class="divTableRow" id=divFilename>
-					<div class="divTableCell">Filename</div>
-					<div class="divTableCell"><input id=txtFilename size=30 value='' autocomplete='off'></div>
+					<div class="divTableCell"><span class="tool" data-tooltip title="File name is stored in plaintext to let the recipients know what they might receive.">File Name</span></div>
+					<div class="divTableCell">
+						<input id=txtFilename size=30 value='' autocomplete='off'>
+						<span class="passwordDesc" style="color: orange">Note: You can change and encrypt the filename here for additional security.</span>
+					</div>
 				</div>
 				<div class="divTableRow">
-					<div class="divTableCell">Password</div>
-					<div class="divTableCell"><input id=txtEncpassphrase size=30 value='' autocomplete='off'></div>
-					<div class="divTableCell">(For extra security only. File will be encrypted regardless)</div>
+					<div class="divTableCell"><span class="tool" data-tooltip title="Password provides additional security but is optional. 
+Your data will always be encrypted">Password</span></div>
+					<div class="divTableCell">
+						<input id="txtEncpassphrase" size=30 value='' autocomplete='off'>
+						<span class="passwordDesc">Optional for extra security only. Your data will always be encrypted.</span>
+					</div>
 				</div>
 				<div class="divTableRow">
-					<div class="divTableCell">Expire in: </div>
+					<div class="divTableCell"><span class="tool" data-tooltip title="Set how long this data should remain on CMShare." tabindex="1">Expire in</span></div>
 					<div class="divTableCell">
 						<select name="expiretime" id="expiretime">
 							<option value="1">1 day</option>
@@ -93,6 +101,7 @@
 					</div>
 
 				</div>
+				
 			</div>
 		</div>
 
@@ -104,7 +113,7 @@
 				<div class="divTableRow">
 					<div class="divTableCell"><button id=btnEncrypt disabled>Encrypt & Upload</button></div>
 					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false" autocomplete='off'>
-					<label for="inputdeleteondownload"> Delete On Download</label><br>
+					<label for="inputdeleteondownload"> <span class="tool" data-tooltip title="Set if data should be removed immediately after decryption" tabindex="1">Delete On Download</span> </label><br>
 				</div>
 				<div class="divTableRow">
 					<div class="divTableCell"><span id=spnEncstatus></span></div>
@@ -206,10 +215,10 @@
 	</div>
 </body>
 
+<script src="./assets/config.js"></script>
+<script src="./assets/main.js"></script>
+<script src="./assets/tooltip.js"></script>
 </html>
 
-<script src="./assets/config.js"></script>
-<script src="./assets/main.js">
 
 
-</script>
