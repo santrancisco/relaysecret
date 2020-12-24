@@ -33,6 +33,8 @@ bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
 bCopyText.onclick = function(){copytextarea()};
 aDecsavefile.onclick = function(){javascript:postdownloadaction()};
 bDeleteFile.onclick = function(){deletefile()};
+imgDecryptImage.onclick = function(){divImageModal.style.display = "block";}
+divImageModal.onclick = function(){divImageModal.style.display = "none";}
 
 
 //---------------------------------------------------//
@@ -92,7 +94,8 @@ async function getMetadata(objurl) {
     originalfilename = data.objname.replace(/[^A-Za-z0-9\-\_\.]/g, '');
     bFilename.innerText = originalfilename;
     bFilesize.innerText = ss;
-         
+    await decryptfile(decryptonvisit=true);
+    body.classList.remove("loading");
 }
 
 
@@ -172,6 +175,22 @@ async function uploadToS3(expire, bytearray) {
     }
 }
 
+function Uint8ToString(u8a){
+    var CHUNK_SZ = 0x8000;
+    var c = [];
+    for (var i=0; i < u8a.length; i+=CHUNK_SZ) {
+      c.push(String.fromCharCode.apply(null, u8a.subarray(i, i+CHUNK_SZ)));
+    }
+    return c.join("");
+  }
+
+function updateimgtag(extension,plaintextbytes){
+    var b64encoded = btoa(Uint8ToString(plaintextbytes));
+    divDecryptImage.style.display = "block"
+    imgDecryptImage.src = "data:image/"+extension+";base64,"+b64encoded;
+    imgDecryptImageModal.src = "data:image/"+extension+";base64,"+b64encoded;
+}
+
 async function downloadFromS3() {
     var url = objmetadata.signedurl
     const response = await fetch(url)
@@ -236,6 +255,7 @@ function copytextarea() {
 
 function switchdiv(t) {
     if (t == 'encryptfile') {
+        divEncryptResult.style.display = 'none';
         divEncrypt.style.display = 'block';
         divDecrypt.style.display = 'none';
         encryptemessagemode = false;
@@ -250,6 +270,7 @@ function switchdiv(t) {
         btnDivEncMes.disabled = false;
         mode = 'encrypt';
     } else if (t == 'encryptmessage') {
+        divEncryptResult.style.display = 'none';
         divEncrypt.style.display = 'block';
         divDecrypt.style.display = 'none';
         encryptemessagemode = true;
@@ -264,6 +285,7 @@ function switchdiv(t) {
         btnDivEncMes.disabled = true;
         mode = 'encrypt';
     } else if (t == 'decrypt') {
+        divEncryptResult.style.display = 'none';
         divEncrypt.style.display = 'none';
         divDecrypt.style.display = 'block';
         encryptemessagemode = false;
@@ -440,7 +462,7 @@ async function encryptfile() {
     // aEncsavefile.hidden = false;
 }
 
-async function decryptfile() {
+async function decryptfile(decryptonvisit=false) {
     var body = document.body;
     body.classList.add("loading");
     var cipherbytes = downloadedcipherbytes;
@@ -486,6 +508,12 @@ async function decryptfile() {
             body.classList.remove("loading");
         });
 
+    if (decryptonvisit  && !plaintextbytes ){
+        console.log("Could not decrypt the file without user key")
+        body.classList.remove("loading");
+        return
+    }
+
     if (!plaintextbytes) {
         spnDecstatus.classList.remove("greenspan");
         spnDecstatus.classList.add("redspan");
@@ -517,18 +545,37 @@ async function decryptfile() {
         textareaDecryptmessage.value =  new TextDecoder("utf-8").decode(plaintextbytes);
         bCopyText.hidden = false;
         divDecryptmessage.style.display = "";
-        if (deleteondownload) {
-            bDownloadDecFile.innerText = "Download or Lose it"
-            deletefile();
-        } else {
-            aDeleteFile.hidden = false;
-        }
+    }
+
+    fileextension = originalfilename.substr(-4)
+    
+    switch (fileextension) {
+        case ".png":
+            updateimgtag("png",plaintextbytes);
+            break;
+        case ".jpg":
+            updateimgtag("jpg",plaintextbytes);
+            break;
+        case "jpeg":
+            updateimgtag("jpeg",plaintextbytes);
+            break;
+        case ".gif":
+            updateimgtag("gif",plaintextbytes);
+            break;
+        
+    }
+
+    if (deleteondownload) {
+        bDownloadDecFile.innerText = "Download or Lose it"
+        deletefile();
+    } else {
+        aDeleteFile.hidden = false;
     }
 }
 
 function postdownloadaction(){
     if (deleteondownload) {
-        deletefile();
+        // deletefile();
         return
     }
 }
