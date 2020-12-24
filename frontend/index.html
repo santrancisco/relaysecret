@@ -196,6 +196,9 @@ Your data will always be encrypted">Password</span></div>
 					
 				</div>
 			</div>
+			<div id=divDecryptImage style="display:none">
+				<img id="imgDecryptImage">
+			</div>
 			<br>
 			<div id=divDecsavefile hidden><button id=bCopyText hidden>Copy text</button><a id=aDecsavefile><button id=bDownloadDecFile>Save Decrypted File</button></a> </div>
 			<p></p>
@@ -206,12 +209,15 @@ Your data will always be encrypted">Password</span></div>
 
 	</div>
 	<BR>
-	<div class="modal">
+	<div class="modal modalstatus">
 		<div class="modal-grid">
 			<div id="modalstatus" class="modal-grid-item">
 				<h1>Please wait ...</h1>
 			</div>
 		</div>
+	</div>
+	<div id="divImageModal" class="modal modalimage">
+		<img id="imgDecryptImageModal">
 	</div>
 </body>
 
