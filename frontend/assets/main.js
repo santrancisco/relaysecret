@@ -382,6 +382,8 @@ function readfile(file) {
 
 async function encryptfile() {
     var body = document.body;
+    // Update tempkey to make sure we have fresh new key everytime.
+    tempkey = uuidv4();
     body.classList.add("loading");
     modalstatus.innerText="Encrypting file with AES using tempkey and user provided password."
     btnEncrypt.disabled = true;
