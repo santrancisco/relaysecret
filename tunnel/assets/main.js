@@ -192,7 +192,7 @@ async function refreshfilelist(){
         deteletd = row.insertCell(2);
         filename.innerText = escapeHtml(f.objname);
         downloadbutton = document.createElement("BUTTON");
-        downloadbutton.innerText = "Download"
+        downloadbutton.innerText = "Decrypt"
         downloadbutton.onclick = function(){decryptfile(f.key,f.objname)};
         deletebutton = document.createElement("BUTTON");
         deletebutton.innerText = "Delete"
