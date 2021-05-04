@@ -10,7 +10,7 @@
 	</style>
 	<link href="./assets/main.css" rel="stylesheet" type="text/css" />
 	<meta name="viewport" content="maximum-scale=1.0, user-scalable=0" />
-	<link rel="stylesheet" href="./assets/dark.min.css">
+	<link rel="stylesheet" href="./assets/light.min.css">
 
 	<link href="./assets/tooltip.css" rel="stylesheet" type="text/css" />
 </head>
@@ -21,7 +21,7 @@
 	<div name="pageheader" class=container>
 		<div class="divTablefullwidth">
 			<div class="divTableBody">
-				<div class="divTableRow"><h1 class="header__title">Relay Secret</h1></div>
+				<div class="divTableRow"><h1 class="header__title">Relay Secret Tunnel 🚇</h1></div>
 				<div class="divTableRow">
 					<div class="divTableCell" style="float: left;">
 						
@@ -38,7 +38,7 @@
 							<button id="btnDivDecrypt">
 								Decrypt</button>
 							<button id="btnRefresh">
-								Refresh Page
+								Refresh List
 							</button>
 					</div>
 				</div>
@@ -79,6 +79,13 @@
 						<span class="passwordDesc" style="color: orange">Note: You can change and encrypt the filename here for additional security.</span>
 					</div>
 				</div>
+				<div class="divTableRow" id=divMsgTitle>
+					<div class="divTableCell"><span class="tool" data-tooltip title="Message Title is stored in plaintext and a txt extension is added.">Msg Title</span></div>
+					<div class="divTableCell">
+						<input id=msgtitle size=30 value='' autocomplete='off'>
+						<span class="passwordDesc" style="color: orange">Note: Msg title is in clear text and will have a txt extension added.</span>
+					</div>
+				</div>
 				<div class="divTableRow">
 					<div class="divTableCell"><span class="tool" data-tooltip title="Password provides additional security but is optional. 
 Your data will always be encrypted">Password</span></div>
@@ -87,27 +94,9 @@ Your data will always be encrypted">Password</span></div>
 						<span class="passwordDesc">Optional for extra security only. Your data will always be encrypted.</span>
 					</div>
 				</div>
-				<div class="divTableRow">
-					<div class="divTableCell"><span class="tool" data-tooltip title="Set how long this data should remain on CMShare." tabindex="1">Expire in</span></div>
-					<div class="divTableCell">
-						<select name="expiretime" id="expiretime">
-							<option value="1">1 day</option>
-							<option value="2">2 days</option>
-							<option value="3">3 days</option>
-							<option value="4">4 days</option>
-							<option value="5">5 days</option>
-							<option value="10">10 days</option>
-						</select>
-					</div>
-
-				</div>
-				
 			</div>
 		</div>
-
 		<p> </p>
-		<p> </p>
-
 		<div class="divTable">
 			<div class="divTableBody">
 				<div class="divTableRow">
@@ -139,6 +128,7 @@ Your data will always be encrypted">Password</span></div>
 				<h3><b><span id=spandownloadurl></span></b></h3>
 				<br>
 				<button id=bShowExtraInfo>Explain this URL</button>
+
 		</div>
 		<div class="divTableBody" id=divExtraDecResult style="display:none">
 			<div class="divTableRow">
@@ -166,8 +156,6 @@ Your data will always be encrypted">Password</span></div>
 
 	<div class="container" id=divDecrypt style="display:none">
 		<h2>Decrypt a File</h2>
-		<p>Filename: <b id=bFilename></b></p>
-		<p>Filesize: <b id=bFilesize>pending...</b></p>
 		<p><span id="spnDecstatus"></span></p>
 		<div class="container" id=divDecryptInfo>
 			<div class="divTable">
@@ -179,14 +167,28 @@ Your data will always be encrypted">Password</span></div>
 					</div>
 				</div>
 			</div>
+			<table class="nozebra">
+				<thead>
+					<tr>
+					<th>Filename</th>
+					<th></th>
+					<th></th>
+					</tr>
+				</thead>
+				<tbody id="filelist">
+					<!-- <tr>
+					<td>File2</td>
+					<td><button>Download</button></td>
+					<td><button>Delete</button></td>
+				  </tr> -->
+				</tbody>
+				
+			  </table>
 			
 			<p> </p>
-			<div>
-				<button id=btnDecrypt>Download & Decrypt File</button> 
-				
-				<br>
-			</div>
+
 		</div>
+		<hr>
 		<div class="container" id=divDecryptResult style="display:none">
 			<div id=divDecryptmessage style="display:none">
 				<h3>Decrypted message</h3>
@@ -199,13 +201,17 @@ Your data will always be encrypted">Password</span></div>
 				<img id="imgDecryptImage">
 			</div>
 			<br>
-			<div id=divDecsavefile hidden><button id=bCopyText hidden>Copy text</button><a id=aDecsavefile><button id=bDownloadDecFile>Save Decrypted File</button></a> </div>
+			<div id=divDecsavefile hidden>
+				<button id=bCopyText hidden>Copy text</button>
+				<a id=aDecsavefile><button id=bDownloadDecFile>Save Decrypted File</button></a> 
+			</div>
 			<p></p>
-			<div id=aDeleteFile hidden><button id=bDeleteFile>Delete File</button> 
+			<div id=aDeleteFile ><button id=bDeleteFile>Delete File</button> 
 			<span>(Please delete immediately if you think this file is malicious)</span></div>
 		</div>
 	</div>
 
+	</div>
 	<BR>
 	<div class="modal modalstatus">
 		<div class="modal-grid">
