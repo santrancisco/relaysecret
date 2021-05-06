@@ -33,8 +33,6 @@ encfileElem.onchange = function(){selectfile(this.files)};
 txtFilename.onchange = function(){originalfilename=txtFilename.value.replace(/[^A-Za-z0-9\-\_\.]/g, '')};
 bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
 bCopyText.onclick = function(){copytextarea()};
-imgDecryptImage.onclick = function(){divImageModal.style.display = "block";}
-divImageModal.onclick = function(){divImageModal.style.display = "none";}
 
 switchdiv('decrypt');
 /*-------------------------------NAVIGATE THE APP GUI--------------------------------*/
@@ -299,7 +297,6 @@ function updateimgtag(extension,plaintextbytes){
     var b64encoded = btoa(Uint8ToString(plaintextbytes));
     divDecryptImage.style.display = "block";
     imgDecryptImage.src = "data:image/"+extension+";base64,"+b64encoded;
-    imgDecryptImageModal.src = "data:image/"+extension+";base64,"+b64encoded;
 }
 
 async function downloadFromS3(objkey) {
