@@ -65,9 +65,10 @@
 
 
 body {
+
   color: black;
   font-size: 14pt;
-  background: #f6f5f6;
+  background: #fff;
 }
 
 a, a:link, a:visited, a:active {
@@ -274,3 +275,33 @@ li {
   -o-transform: rotate(45deg);
   box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.8);
 }
+
+button{
+  background-color:lightgray;
+}
+
+button:hover{
+  background-color: darkgray;
+}
+
+/* Experiment with no-zebra table to make it look better
+table.nozebra {
+	border-width: 5px;
+	background: #fff;
+        text-align:left;
+}
+table.nozebra th {
+	border-width: 5px;
+	background: #fff;
+        text-align:left;
+}
+table.nozebra td {
+	border-width: 5px;
+	background: #fff;
+        text-align:left;
+}
+table.nozebra tr {
+	border-width: 5px;
+	background: #fff;
+        text-align:left;
+}  */
