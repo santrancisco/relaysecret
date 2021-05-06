@@ -120,6 +120,7 @@ a:hover {
 .divTableCell {
   display: table-cell;
   padding: 3px 3px;
+  vertical-align:top;
 }
 .divTableBody {
   display: table-row-group;
