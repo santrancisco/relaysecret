@@ -33,8 +33,6 @@ bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
 bCopyText.onclick = function(){copytextarea()};
 aDecsavefile.onclick = function(){javascript:postdownloadaction()};
 bDeleteFile.onclick = function(){deletefile()};
-imgDecryptImage.onclick = function(){divImageModal.style.display = "block";}
-divImageModal.onclick = function(){divImageModal.style.display = "none";}
 
 
 //---------------------------------------------------//
@@ -188,7 +186,6 @@ function updateimgtag(extension,plaintextbytes){
     var b64encoded = btoa(Uint8ToString(plaintextbytes));
     divDecryptImage.style.display = "block"
     imgDecryptImage.src = "data:image/"+extension+";base64,"+b64encoded;
-    imgDecryptImageModal.src = "data:image/"+extension+";base64,"+b64encoded;
 }
 
 async function downloadFromS3() {
