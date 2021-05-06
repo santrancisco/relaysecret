@@ -65,7 +65,6 @@
 
 
 body {
-    font-family: 'Roboto Mono,Helvetica Neue,Arial,Helvetica,monospace,sans-serif'; 
   color: black;
   font-size: 14pt;
   background: #f6f5f6;
@@ -135,9 +134,9 @@ a:hover {
 }
 
 
+
 /* The Modal (background) */
 .modal {
-  text-align: center;
   display: none; /* Hidden by default */
   position: fixed; /* Stay in place */
   z-index: 1; /* Sit on top */
@@ -148,10 +147,9 @@ a:hover {
   height: 100%; /* Full height */
   overflow: auto; /* Enable scroll if needed */
   background-color: rgb(0, 0, 0); /* Fallback color */
-  background: rgba( 30, 30, 30, .8 ) 
-  url('FhHRx.gif') 
-  50% 50% 
-  no-repeat;
+  background: rgba(30, 30, 30, 0.8) url('loading.gif') 50% 50% no-repeat;
+  background-size: 50px;
+  color: white;
 }
 
 /* Modal Content (Image) */
@@ -165,8 +163,14 @@ a:hover {
   display: grid;
   grid-template-columns: auto;
   margin: auto;
-  margin-top: 100px;
-  width: 300px;
+  margin-top: 250px;
+  width: 400px;
+}
+
+textarea {
+  width: 790px !important;
+  margin-left: 5px !important;
+  resize: vertical !important;
 }
 
 .modal-grid-item {
@@ -175,15 +179,16 @@ a:hover {
 }
 /* When the body has the loading class, we turn
    the scrollbar off with overflow:hidden */
-body.loading .modalstatus {
-    overflow: hidden;   
+body.loading .modal {
+  overflow: hidden;
 }
 
 /* Anytime the body has the loading class, our
    modal element will be visible */
-body.loading .modalstatus{
-    display: block;
+body.loading .modal {
+  display: block;
 }
+
 
 
 
