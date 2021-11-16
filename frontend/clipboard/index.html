@@ -17,8 +17,14 @@
 
 <body>
 	<span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret">Fork me on GitHub</a></span>
-	<h1>Copying text with the Clipboard() API</h1>
-	<p>The <code>Clipboard()</code> API aims to replace the <code>document.execCommand()</code> technique to copy/paste text to the clipboard. It is asynchronous and works with promises. To have an example, click the first button to copy "Hello world!" to your clipboard and the second to paste it below.</p>
+	<h1>Share encrypted clipboard</h1>
+	<p>This code uses <code>Clipboard()</code> API to retrieve or update user's clipboard. Clipboard data is AES encrypted in the browser, you can inspect it in the network tab. The aim of the project is to play with cloudflare KV storage and build something useful.
+	<br>
+	<br>
+		To use this application, simply copy something, enter a password, click "Update clipboard" then on another machine, visit this url, enter the same tunnelid & password, click "Get Clipboard" to retrieve it and vice versa. 
+		<br><br>
+		Now you can retrieve and update with multiple machines!
+	</p>
 	<span class="tool" data-tooltip title="Password provides additional security but is optional. 
 Your data will always be encrypted">Password</span><input type="password" id="txtEncpassphrase" size=30 value='' autocomplete='off'>
 	<button id="get">Get clipboard</button>
