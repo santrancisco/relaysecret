@@ -1,0 +1,9 @@
+{
+    "private": true,
+    "name": "relayclipboard",
+    "version": "1.0.0",
+    "description": "An encrypted message tunnel for relay secret clipboard",
+    "main": "index.js",
+    "author": "santrancisco <san.tran@ebfe.pw>",
+    "license": "MIT"
+}

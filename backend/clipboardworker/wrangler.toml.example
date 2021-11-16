@@ -1,0 +1,7 @@
+name = "tunnel"
+type = "webpack"
+account_id = "YOUR ACCOUNT ID"
+workers_dev = true
+route = ""
+zone_id = ""
+kv_namespaces = [  { binding = "TUNNELKV", id = "YOUR_KV_NAMESPACE", preview_id = "YOUR_KV_NAMESPACE" }]
