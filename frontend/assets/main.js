@@ -1,3 +1,8 @@
+// If this page is loaded in http, redirect to https
+ if ( window.location.protocol == "http:"){
+   window.location.protocol = "https";
+ }
+
 // The encryption potion of the code was written by meixler, you can find it here https://github.com/meixler/web-browser-based-file-encryption-decryption
 // All cryptography operations are implemented using using the Web Crypto API. Files are encrypted using AES-CBC 256-bit symmetric encryption. The encryption key is derived from the password and a random salt using PBKDF2 derivation with 10000 iterations of SHA256 hashing.
 
