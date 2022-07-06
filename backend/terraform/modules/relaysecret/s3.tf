@@ -1,87 +1,110 @@
 // This is our bucket for storing data. Access is set to private and leveraging lifecycle rules, we can expire our objects base on their prefix.
 
+
+
 resource "aws_s3_bucket" "bucket" {
   bucket = "relaysecret-${var.deploymentname}"
+}
+
+
+resource "aws_s3_bucket_acl" "bucket_acl" {
+  bucket = aws_s3_bucket.bucket.id
   acl    = "private"
+}
 
-  lifecycle_rule {
-    id      = "1day"
-    enabled = true
-    prefix = "1day/"
-    expiration {
-      days = 1
+resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_encryption" {
+  bucket = aws_s3_bucket.bucket.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "AES256"
     }
   }
+}
 
-  lifecycle_rule {
-    id      = "2day"
-    enabled = true
-    prefix = "2day/"
-    expiration {
-      days = 2
-    }
-  }
 
-  lifecycle_rule {
-    id      = "3day"
-    enabled = true
-    prefix = "3day/"
-    expiration {
-      days = 3
-    }
-  }
 
-  lifecycle_rule {
-    id      = "4day"
-    enabled = true
-    prefix = "4day/"
-    expiration {
-      days = 4
-    }
-  }
-
-  lifecycle_rule {
-    id      = "5day"
-    enabled = true
-    prefix = "5day/"
-    expiration {
-      days = 5
-    }
-  }
-
-  lifecycle_rule {
-    id      = "10day"
-    enabled = true
-    prefix = "10day/"
-    expiration {
-      days = 10
-    }
-  }
-
-  lifecycle_rule {
-    id      = "catchall"
-    enabled = true
-    expiration {
-      days = 11
-    }
-  }
-
-   cors_rule {
+resource "aws_s3_bucket_cors_configuration" "bucket_corsheader" {
+  bucket = aws_s3_bucket.bucket.id
+  cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET","PUT", "POST"]
     allowed_origins = ["*"]
     expose_headers = ["x-amz-meta-tag"]
     max_age_seconds = 3000
   }
+}
 
-   server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm     = "AES256"
-      }
+
+resource "aws_s3_bucket_lifecycle_configuration" "bucket_lifecycle" {
+  bucket = aws_s3_bucket.bucket.id
+
+  rule {
+    id = "1day"
+    status = "Enabled"
+    filter {
+      prefix = "1day/"
+    }
+    expiration {
+      days = 1
     }
   }
-
+  rule {
+    id = "2day"
+    status = "Enabled"
+    filter {
+      prefix = "2day/"
+    }
+    expiration {
+      days = 2
+    }
+  }
+  rule {
+    id = "3day"
+    status = "Enabled"
+    filter {
+      prefix = "3day/"
+    }
+    expiration {
+      days = 3
+    }
+  }
+  rule {
+    id = "4day"
+    status = "Enabled"
+    filter {
+      prefix = "4day/"
+    }
+    expiration {
+      days = 4
+    }
+  }
+  rule {
+    id = "5day"
+    status = "Enabled"
+    filter {
+      prefix = "5day/"
+    }
+    expiration {
+      days = 5
+    }
+  }
+  rule {
+    id = "10day"
+    status = "Enabled"
+    filter {
+      prefix = "10day/"
+    }
+    expiration {
+      days = 1
+    }
+  }
+  rule {
+    id = "catchall"
+    status = "Enabled"
+    expiration {
+      days = 11
+    }
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "bucket" {
