@@ -1,3 +1,8 @@
+terraform {
+  required_version = "1.2.2"
+}
+
+
 
 # A data source containing the lambda function
 data "archive_file" "lambda" {
@@ -17,7 +22,6 @@ variable "deploymentname" {
 }
 
 provider "aws" {
-  version             = "~> 3.5.0"
   region              = "us-east-1"
   allowed_account_ids = var.accountids
 }
