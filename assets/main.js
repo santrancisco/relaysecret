@@ -19,6 +19,7 @@ var anchorkey = window.location.hash.substring(1);
 var objmetadata = null;
 var downloadurl = null;
 var infected = false;
+var datastoreregion= dataregion[dataregion.selectedIndex].value;
 
 // Set onclick events for our page so we can lock it down using CSP.
 btnDivEncMes.onclick = function(){switchdiv('encryptmessage')};
@@ -38,14 +39,27 @@ bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
 bCopyText.onclick = function(){copytextarea()};
 aDecsavefile.onclick = function(){javascript:postdownloadaction()};
 bDeleteFile.onclick = function(){deletefile()};
+expiretime.onchange = function(){savedropdown("expiretime",expiretime.selectedIndex)}
+datastoreregion="us"
+regions = {"au": "Australia","us" : "United States", "eu": "Europe"}
 
+dataregion.onchange = function(){
+    datastoreregion = dataregion[dataregion.selectedIndex].value;
+    savedropdown("dataregion",dataregion.selectedIndex);
+};
 
-//---------------------------------------------------//
 
 switchdiv('encryptmessage');
+
 try {
     objurl = getUrlVars()["obj"]
     if (objurl != undefined) {
+        datastoreregion=getUrlVars()["region"]
+        if (datastoreregion === undefined){
+            datastoreregion="us"
+        }
+        console.log(datastoreregion)
+        bFileRegion.innerText = regions[datastoreregion]
         switchdiv('decrypt');
         getMetadata(objurl);
     } else {
@@ -59,6 +73,26 @@ try {
 }
 
 
+
+//----------------------Save&Load configuration-----------------------------//
+
+function loaddropdown (name){
+    if (localStorage.getItem(name) != null){
+        document.getElementById(name).selectedIndex = localStorage.getItem(name)
+    }
+}
+
+loaddropdown("dataregion")
+datastoreregion= dataregion[dataregion.selectedIndex].value;
+loaddropdown("expiretime")
+
+function savedropdown (name, value){
+	localStorage.setItem(name, value); 
+}
+
+
+//-------------------------Helper functions------------------------------//
+
 function uuidv4() {
     return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
@@ -67,115 +101,12 @@ function uuidv4() {
 
 
 function getUrlVars() {
+    urlwithoutanchor=window.location.href.split("#")[0]
     var vars = {};
-    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (m, key, value) {
+    var parts = urlwithoutanchor.replace(/[?&]+([^=&]+)=([^&]*)/gi, function (m, key, value) {
         vars[key] = value;
     });
     return vars;
-}
-
-async function getMetadata(objurl) {
-    var body = document.body;
-    body.classList.add("loading");
-    let url = lambdaurl + objurl;
-    response = await fetch(url);
-    
-    body.classList.remove("loading");
-    if (response.status == 404) {
-        bFilename.innerText = "Failed to fetch metadata - File may no longer exist.";
-        btnDecrypt.disabled = true;
-        return
-    }
-    data = await response.json();
-    objmetadata = data;
-    ss = String(objmetadata.objsize) + " Bytes"
-    if ((objmetadata.objsize / 1048576) > 1) {
-        ss = String((objmetadata.objsize / 1048576).toFixed(0)) + " Mb";
-    } else if ((objmetadata.objsize / 1024) > 1) {
-        ss = String((objmetadata.objsize / 1024).toFixed(0)) + " Kb"
-    }
-    originalfilename = data.objname.replace(/[^A-Za-z0-9\-\_\.]/g, '');
-    bFilename.innerText = originalfilename;
-    bFilesize.innerText = ss;
-    await decryptfile(decryptonvisit=true);
-    body.classList.remove("loading");
-}
-
-
-async function checkforvirus(filehash) {
-    let url = lambdaurl + "/sha1/"+filehash;
-    response = await fetch(url);
-    data = await(response.json);
-    vtlink = data.vtlink
-    if (data.detect){
-        console.log("Virus total detected!");
-        spnDecstatus.classList.remove("greenspan");
-        spnDecstatus.classList.add("redspan");
-        spnDecstatus.innerHTML = "<h3 style='color:red'>VIRUS DETECTED</h3> <a target='_blank' href='"+vtlink+"'>Visit virustotal result("+data.positives+"/"+data.total+" detected)</a>"
-        document.body.style.background="#ff9966";
-        bDownloadDecFile.innerText = "Ignore & Download anyway"
-        infected = true;
-    } else {
-        spnDecstatus.classList.remove("redspan");
-        spnDecstatus.classList.add("greenspan");
-        spnDecstatus.innerText = "File is clean!"
-        console.log("This file is clean!");
-    }
-}
-     
-
-
-
-async function uploadToS3(expire, bytearray) {
-    var body = document.body;
-    body.classList.add("loading");
-    modalstatus.innerText="Getting presigned s3 URL for upload.";
-    var url = lambdaurl + 'gettoken/' + expire;
-    var filemetadata = {
-        name:originalfilename,
-        deleteondownload:inputdeleteondownload.checked
-    }
-    try {
-        response = await fetch(url);
-        data = await response.json();             
-        // var b64blob = base64ArrayBuffer(bytearray);
-        blob = new Blob([bytearray], { type: 'application/octet-stream' });
-        const formData = new FormData();
-        formData.append("Content-Type", "text/plain");
-        formData.append("x-amz-meta-tag",(JSON.stringify(filemetadata)))
-        Object.entries(data.fields).forEach(([k, v]) => {
-            formData.append(k, v);
-        });
-        formData.append("file", blob);
-        modalstatus.innerText="Uploading encrypted blob";
-        response = await fetch(data.url, {
-            method: "POST",
-            body: formData,
-        })
-        if (response.status == 204) {
-            downloadurl = document.location.protocol + "//" + document.location.host + "?obj=" + data.fields.key + "#" + tempkey;
-            decoratedeurl = "<span>" + document.location.protocol + "//" + document.location.host + "?obj=</span>"
-                + "<span style='color: #0074D9;'>" + data.fields.key + "</span>"
-                + "#"
-                + "<span style='color: #FF851B;'>" + tempkey + "</span>"
-                spandownloadurl.innerHTML = "<a id=aCopyFinalURL style='color: inherit;' href='" + downloadurl + "'>" + decoratedeurl + "</a> (Click to copy)"
-                aCopyFinalURL.onclick=function(){copyURI(event)};
-            span_objname.innerText = data.fields.key
-            span_keymat.innerText = tempkey
-            divEncryptResult.style.display = "block";
-            divEncrypt.style.display = "none";
-        } else {
-            spandownloadurl.innerText = "Failed to upload the file to S3";
-            spnEncstatus.classList.remove("greenspan");
-            spnEncstatus.classList.add("redspan");
-            spnEncstatus.innerHTML = '<p>Failed to upload.</p>';
-        }
-    }
-    catch(error) {
-        console.log("Failed to upload"); // This is where you run code if the server returns any errors
-        console.log(err);
-        body.classList.remove("loading");
-    }
 }
 
 function Uint8ToString(u8a){
@@ -193,51 +124,6 @@ function updateimgtag(extension,plaintextbytes){
     imgDecryptImage.src = "data:image/"+extension+";base64,"+b64encoded;
 }
 
-async function downloadFromS3() {
-    var url = objmetadata.signedurl
-    const response = await fetch(url)
-    
-    if (response.status != 200) {
-        spnDecstatus.innerText = "FAILED to download"
-        return
-    }
-    console.log(response.headers.get("x-amz-meta-tag"))
-    try {
-        filemetadata = JSON.parse(response.headers.get("x-amz-meta-tag"));
-    } catch (error) {
-        filemetadata = {name:"plain.dec",deleteondownload:false};
-    }
-    if (filemetadata.name != "") {
-        originalfilename = filemetadata.name.replace(/[^A-Za-z0-9\-\_\.]/g, '');;
-    }
-    if (originalfilename == "messageinbrowser.txt") {
-        encryptemessagemode = true;
-    }
-    deleteondownload = filemetadata.deleteondownload;
-
-    buff = await response.arrayBuffer();
-    downloadedcipherbytes = new Uint8Array(buff)
-    modalstatus.innerText="Decrypting binary blob";
-    return downloadedcipherbytes
-}
-
-
-
-async function deletefile() {
-    var deleteurl = lambdaurl + "delete/" + objurl
-    const response = await fetch(deleteurl)
-
-    if (response.status != 200) {
-        spnDecstatus.classList.remove("greenspan");
-        spnDecstatus.classList.add("redspan");
-        spnDecstatus.innerHTML += "Failed to delete object"
-        return
-    } else {
-        spnDecstatus.innerHTML = "Deleted object"
-    }
-}
-
-
 function copyURI(evt) {
     evt.preventDefault();
     navigator.clipboard.writeText(downloadurl).then(() => {
@@ -253,7 +139,8 @@ function copytextarea() {
     let textarea = document.getElementById("textareaDecryptmessage");
     textarea.select();
     document.execCommand("copy");
-  }
+}
+
 
 function switchdiv(t) {
     if (t == 'encryptfile') {
@@ -303,31 +190,6 @@ function switchdiv(t) {
     }
 }
 
-//drag and drop functions:
-//https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
-function drop_handler(ev) {
-    console.log("Drop");
-    ev.preventDefault();
-    // If dropped items aren't files, reject them
-    var dt = ev.dataTransfer;
-    if (dt.items) {
-        // Use DataTransferItemList interface to access the file(s)
-        for (var i = 0; i < dt.items.length; i++) {
-            if (dt.items[i].kind == "file") {
-                var f = dt.items[i].getAsFile();
-                console.log("... file[" + i + "].name = " + f.name);
-                objFile = f;
-            }
-        }
-    } else {
-        // Use DataTransfer interface to access the file(s)
-        for (var i = 0; i < dt.files.length; i++) {
-            console.log("... file[" + i + "].name = " + dt.files[i].name);
-        }
-        objFile = file[0];
-    }
-    displayfile()
-}
 
 function dragover_handler(ev) {
     console.log("dragOver");
@@ -355,6 +217,7 @@ function selectfile(Files) {
     displayfile()
 }
 
+
 function displayfile() {
     originalfilename = objFile.name.replace(/[^A-Za-z0-9\-\_\.]/g, '');;
     txtFilename.value = objFile.name;
@@ -381,6 +244,220 @@ function readfile(file) {
         fr.readAsArrayBuffer(file);
     });
 }
+
+
+function postdownloadaction(){
+    if (deleteondownload) {
+        // deletefile();
+        return
+    }
+}
+function buf2hex(buffer) { // buffer is an ArrayBuffer
+    return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
+}
+
+async function sha1(data) {
+    hash = await crypto.subtle.digest('SHA-1', data);
+    return buf2hex(hash);
+  }
+
+function showmoredecryptioninfo(){
+    divExtraDecResult.style.display="block";
+    bShowExtraInfo.style.display="none";
+}
+
+//--------------------------Encryption & Uploading code----------------------------------//
+
+
+// get metadata for a file from lambdaurl
+async function getMetadata(objurl) {
+    var body = document.body;
+    body.classList.add("loading");
+    let url = lambdaurl + objurl+ "?region=" + datastoreregion;
+    response = await fetch(url);
+    
+    body.classList.remove("loading");
+    if (response.status == 404) {
+        bFilename.innerText = "Failed to fetch metadata - File may no longer exist.";
+        btnDecrypt.disabled = true;
+        return
+    }
+    data = await response.json();
+    objmetadata = data;
+    ss = String(objmetadata.objsize) + " Bytes"
+    if ((objmetadata.objsize / 1048576) > 1) {
+        ss = String((objmetadata.objsize / 1048576).toFixed(0)) + " Mb";
+    } else if ((objmetadata.objsize / 1024) > 1) {
+        ss = String((objmetadata.objsize / 1024).toFixed(0)) + " Kb"
+    }
+    originalfilename = data.objname.replace(/[^A-Za-z0-9\-\_\.]/g, '');
+    bFilename.innerText = originalfilename;
+    bFilesize.innerText = ss;
+    await decryptfile(decryptonvisit=true);
+    body.classList.remove("loading");
+}
+
+// checking for virus from decrypted blob (This perform a simple sha1 on the blob and send it to lambda function to run against virustotal API)
+// DONOT put just your password inside a text file... this obviously mean the sha1 hash of the password will be sent back to lamba service function
+async function checkforvirus(filehash) {
+    let url = lambdaurl + "/sha1/"+filehash+ "?region=" + datastoreregion;;
+    response = await fetch(url);
+    data = await response.json();
+    console.log(data)
+    vtlink = data.vtlink
+    if (data.detect){
+        console.log("Virus total detected!");
+        spnDecstatus.classList.remove("greenspan");
+        spnDecstatus.classList.add("redspan");
+        spnDecstatus.innerHTML = "<h3 style='color:red'>VIRUS DETECTED</h3> <a target='_blank' href='"+vtlink+"'>Visit virustotal result("+data.positives+"/"+data.total+" detected)</a>"
+        document.body.style.background="#ff9966";
+        bDownloadDecFile.innerText = "Ignore & Download anyway"
+        infected = true;
+    } else {
+        spnDecstatus.classList.remove("redspan");
+        spnDecstatus.classList.add("greenspan");
+        spnDecstatus.innerText = "File is clean!"
+        console.log("This file is clean!");
+    }
+}
+     
+
+
+// upload blob to S3 bucket (This operation MUST be done AFTER encrypting the blob)
+async function uploadToS3(expire, bytearray) {
+    var body = document.body;
+    body.classList.add("loading");
+    modalstatus.innerText="Getting presigned s3 URL for upload.";
+    var url = lambdaurl + 'gettoken/' + expire+ "?region=" + datastoreregion;
+    var filemetadata = {
+        name:originalfilename,
+        deleteondownload:inputdeleteondownload.checked
+    }
+    try {
+        response = await fetch(url);
+        data = await response.json();             
+        // var b64blob = base64ArrayBuffer(bytearray);
+        blob = new Blob([bytearray], { type: 'application/octet-stream' });
+        const formData = new FormData();
+        formData.append("Content-Type", "text/plain");
+        formData.append("x-amz-meta-tag",(JSON.stringify(filemetadata)))
+        Object.entries(data.fields).forEach(([k, v]) => {
+            formData.append(k, v);
+        });
+        formData.append("file", blob);
+        modalstatus.innerText="Uploading encrypted blob";
+        response = await fetch(data.url, {
+            method: "POST",
+            body: formData,
+        })
+        if (response.status == 204) {
+            downloadurl = document.location.protocol + "//" + document.location.host + "?obj=" + data.fields.key + "&region=" + datastoreregion + "#" + tempkey;
+            console.log(downloadurl)
+            decoratedeurl = "<span>" + document.location.protocol + "//" + document.location.host + "?obj=</span>"
+                + "<span style='color: #0074D9;'>" + data.fields.key + "&amp;region=" + datastoreregion + "</span>"
+                + "#"
+                + "<span style='color: #FF851B;'>" + tempkey + "</span>"
+                spandownloadurl.innerHTML = "<a id=aCopyFinalURL style='color: inherit;' href='" + downloadurl + "'>" + decoratedeurl + "</a> (Click to copy)"
+                aCopyFinalURL.onclick=function(){copyURI(event)};
+            span_objname.innerText = data.fields.key
+            span_keymat.innerText = tempkey
+            divEncryptResult.style.display = "block";
+            divEncrypt.style.display = "none";
+        } else {
+            spandownloadurl.innerText = "Failed to upload the file to S3";
+            spnEncstatus.classList.remove("greenspan");
+            spnEncstatus.classList.add("redspan");
+            spnEncstatus.innerHTML = '<p>Failed to upload.</p>';
+        }
+    }
+    catch(error) {
+        console.log("Failed to upload"); // This is where you run code if the server returns any errors
+        console.log(err);
+        body.classList.remove("loading");
+    }
+}
+
+
+// Download encrypted object from S3 - This is done before decryption
+async function downloadFromS3() {
+    var url = objmetadata.signedurl
+    const response = await fetch(url)
+    modalstatus.innerText="Download encrypted object from S3";
+    if (response.status != 200) {
+        spnDecstatus.innerText = "FAILED to download"
+        return
+    }
+    console.log(response.headers.get("x-amz-meta-tag"))
+    try {
+        filemetadata = JSON.parse(response.headers.get("x-amz-meta-tag"));
+    } catch (error) {
+        filemetadata = {name:"plain.dec",deleteondownload:false};
+    }
+    if (filemetadata.name != "") {
+        // Just incase - remove non-alphabate characters
+        originalfilename = filemetadata.name.replace(/[^A-Za-z0-9\-\_\.]/g, '');;
+    }
+    if (originalfilename == "messageinbrowser.txt") {
+        encryptemessagemode = true;
+    }
+    deleteondownload = filemetadata.deleteondownload;
+
+    buff = await response.arrayBuffer();
+    downloadedcipherbytes = new Uint8Array(buff)
+    return downloadedcipherbytes
+}
+
+
+// Delete S3 object - Note that this operation can be done even without decrypting the file content and the delete button is not visible to the user
+// because the HTML display attribute. With that said, there is no real practical way of abusing this as 
+// the objects are stored in the buckets with unique random uuid that is not possible to bruteforce.
+// The only one who can see the list of encrypted objects in the bucket is the owner of the bucket or AWS employee and in which case, they can delete the object via AWS console anyway.
+async function deletefile() {
+    var deleteurl = lambdaurl + "delete/" + objurl+ "?region=" + datastoreregion;
+    const response = await fetch(deleteurl)
+
+    if (response.status != 200) {
+        spnDecstatus.classList.remove("greenspan");
+        spnDecstatus.classList.add("redspan");
+        spnDecstatus.innerHTML += "Failed to delete object"
+        return
+    } else {
+        spnDecstatus.innerHTML = "Deleted object"
+    }
+}
+
+
+
+//drag and drop functions:
+//https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API/File_drag_and_drop
+function drop_handler(ev) {
+    console.log("Drop");
+    ev.preventDefault();
+    // If dropped items aren't files, reject them
+    var dt = ev.dataTransfer;
+    if (dt.items) {
+        // Use DataTransferItemList interface to access the file(s)
+        for (var i = 0; i < dt.items.length; i++) {
+            if (dt.items[i].kind == "file") {
+                var f = dt.items[i].getAsFile();
+                console.log("... file[" + i + "].name = " + f.name);
+                objFile = f;
+            }
+        }
+    } else {
+        // Use DataTransfer interface to access the file(s)
+        for (var i = 0; i < dt.files.length; i++) {
+            console.log("... file[" + i + "].name = " + dt.files[i].name);
+        }
+        objFile = file[0];
+    }
+    displayfile()
+}
+
+// This is where we encrypt the file:
+// - Use PBKDF2 to derive passphrasekey from the anchortag(#) key and the user's provided password
+// - Encrypt the file/message
+// - Upload the file - File name is kept in plaintext as a object tag so recepient knows what they receive
 
 async function encryptfile() {
     var body = document.body;
@@ -461,10 +538,15 @@ async function encryptfile() {
     var exp = expiretime[expiretime.selectedIndex].value;
     await uploadToS3(exp, resultbytes)
     body.classList.remove("loading");
-    // aEncsavefile.href = blobUrl;
-    // aEncsavefile.download = objFile.name + '.enc';
-    // aEncsavefile.hidden = false;
 }
+
+
+// This is where we decrypt the file:
+// - Download file from S3
+// - Use PBKDF2 to derive passphrasekey from the anchortag(#) key and the user's provided password
+// - Decrypt the blob
+// - Generate SHA1 of the plaintext and send back for virustotal api check, if return infected - update UI and stop user from downloading
+// - Determine if it's a message or file to display appropriately to the user
 
 async function decryptfile(decryptonvisit=false) {
     var body = document.body;
@@ -577,22 +659,3 @@ async function decryptfile(decryptonvisit=false) {
     }
 }
 
-function postdownloadaction(){
-    if (deleteondownload) {
-        // deletefile();
-        return
-    }
-}
-function buf2hex(buffer) { // buffer is an ArrayBuffer
-    return Array.prototype.map.call(new Uint8Array(buffer), x => ('00' + x.toString(16)).slice(-2)).join('');
-}
-
-async function sha1(data) {
-    hash = await crypto.subtle.digest('SHA-1', data);
-    return buf2hex(hash);
-  }
-
-function showmoredecryptioninfo(){
-    divExtraDecResult.style.display="block";
-    bShowExtraInfo.style.display="none";
-}
