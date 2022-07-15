@@ -18,6 +18,8 @@ resource "aws_lambda_function" "relaysecret" {
 locals {
   extraenvar = {
     "BUCKETNAME" = aws_s3_bucket.bucket.id
+    "BUCKETNAME_AU" = aws_s3_bucket.bucket_au.id
+    "BUCKETNAME_EU" = aws_s3_bucket.bucket_eu.id
     "SEED"       = "relaysecret-${var.deploymentname}"
   }
 }

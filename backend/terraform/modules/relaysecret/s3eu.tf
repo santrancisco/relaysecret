@@ -1,19 +1,25 @@
 // This is our bucket for storing data. Access is set to private and leveraging lifecycle rules, we can expire our objects base on their prefix.
-
-
-
-resource "aws_s3_bucket" "bucket" {
-  bucket = "relaysecret-${var.deploymentname}"
+provider "aws" {
+  alias               = "euregion"
+  region              = "eu-central-1"
 }
 
 
-resource "aws_s3_bucket_acl" "bucket_acl" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket" "bucket_eu" {
+  provider = aws.euregion
+  bucket = "relaysecret-${var.deploymentname}-eu"
+}
+
+
+resource "aws_s3_bucket_acl" "bucket_eu_acl" {
+  provider = aws.euregion
+  bucket = aws_s3_bucket.bucket_eu.id
   acl    = "private"
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_encryption" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_eu_encryption" {
+  provider = aws.euregion
+  bucket = aws_s3_bucket.bucket_eu.id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "AES256"
@@ -23,8 +29,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_encryption
 
 
 
-resource "aws_s3_bucket_cors_configuration" "bucket_corsheader" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_cors_configuration" "bucket_eu_corsheader" {
+  provider = aws.euregion
+  bucket = aws_s3_bucket.bucket_eu.id
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET","PUT", "POST"]
@@ -35,8 +42,9 @@ resource "aws_s3_bucket_cors_configuration" "bucket_corsheader" {
 }
 
 
-resource "aws_s3_bucket_lifecycle_configuration" "bucket_lifecycle" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_lifecycle_configuration" "bucket_eu_lifecycle" {
+  provider = aws.euregion
+  bucket = aws_s3_bucket.bucket_eu.id
 
   rule {
     id = "1day"
@@ -107,14 +115,15 @@ resource "aws_s3_bucket_lifecycle_configuration" "bucket_lifecycle" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "bucket" {
-  bucket                  = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_public_access_block" "bucket_eu" {
+  provider = aws.euregion
+  bucket                  = aws_s3_bucket.bucket_eu.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
 
-output "bucket" {
-  value = aws_s3_bucket.bucket.arn
+output "bucketeu" {
+  value = aws_s3_bucket.bucket_eu.arn
 }

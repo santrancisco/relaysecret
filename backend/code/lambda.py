@@ -20,10 +20,12 @@ import hashlib
 bktUS = os.getenv('BUCKETNAME',None)
 bktAU = os.getenv('BUCKETNAME_AU',None)
 bktEU = os.getenv('BUCKETNAME_EU',None)
-bkt = bktUS
 awsregionUS = "us-east-1"
 awsregionAU = "ap-southeast-2"
 awsregionEU = "eu-central-1"
+
+## Default region
+bkt = bktUS
 awsregion = awsregionUS
 
 seed = os.environ['SEED']

@@ -83,7 +83,7 @@
 					<div class="divTableCell"><span class="tool" data-tooltip title="Password provides additional security but is optional. 
 Your data will always be encrypted">Password</span></div>
 					<div class="divTableCell">
-						<input id="txtEncpassphrase" size=30 value='' autocomplete='off'>
+						<input id="txtEncpassphrase" size=30 value='' type=”password autocomplete='off'>
 						<span class="passwordDesc">Optional for extra security only. Your data will always be encrypted.</span>
 					</div>
 				</div>
@@ -97,6 +97,17 @@ Your data will always be encrypted">Password</span></div>
 							<option value="4">4 days</option>
 							<option value="5">5 days</option>
 							<option value="10">10 days</option>
+						</select>
+					</div>
+
+				</div>
+				<div class="divTableRow">
+					<div class="divTableCell"><span class="tool" data-tooltip="" title="" data-tooltip-id="4">Datastore region</span></div>
+					<div class="divTableCell">
+						<select name="dataregion" id="dataregion">
+							<option value="eu">Europe</option>
+							<option value="au">Australia</option>
+							<option value="us">United States</option>
 						</select>
 					</div>
 
@@ -168,6 +179,7 @@ Your data will always be encrypted">Password</span></div>
 		<h2>Decrypt a File</h2>
 		<p>Filename: <b id=bFilename></b></p>
 		<p>Filesize: <b id=bFilesize>pending...</b></p>
+		<p>Datastore region: <b id=bFileRegion>pending...</b></p>
 		<p><span id="spnDecstatus"></span></p>
 		<div class="container" id=divDecryptInfo>
 			<div class="divTable">

@@ -1,19 +1,25 @@
 // This is our bucket for storing data. Access is set to private and leveraging lifecycle rules, we can expire our objects base on their prefix.
-
-
-
-resource "aws_s3_bucket" "bucket" {
-  bucket = "relaysecret-${var.deploymentname}"
+provider "aws" {
+  alias               = "auregion"
+  region              = "ap-southeast-2"
 }
 
 
-resource "aws_s3_bucket_acl" "bucket_acl" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket" "bucket_au" {
+  provider = aws.auregion
+  bucket = "relaysecret-${var.deploymentname}-au"
+}
+
+
+resource "aws_s3_bucket_acl" "bucket_au_acl" {
+  provider = aws.auregion
+  bucket = aws_s3_bucket.bucket_au.id
   acl    = "private"
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_encryption" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_au_encryption" {
+  provider = aws.auregion
+  bucket = aws_s3_bucket.bucket_au.id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "AES256"
@@ -23,8 +29,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "bucket_encryption
 
 
 
-resource "aws_s3_bucket_cors_configuration" "bucket_corsheader" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_cors_configuration" "bucket_au_corsheader" {
+  provider = aws.auregion
+  bucket = aws_s3_bucket.bucket_au.id
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["GET","PUT", "POST"]
@@ -35,8 +42,9 @@ resource "aws_s3_bucket_cors_configuration" "bucket_corsheader" {
 }
 
 
-resource "aws_s3_bucket_lifecycle_configuration" "bucket_lifecycle" {
-  bucket = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_lifecycle_configuration" "bucket_au_lifecycle" {
+  provider = aws.auregion
+  bucket = aws_s3_bucket.bucket_au.id
 
   rule {
     id = "1day"
@@ -107,14 +115,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "bucket_lifecycle" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "bucket" {
-  bucket                  = aws_s3_bucket.bucket.id
+resource "aws_s3_bucket_public_access_block" "bucket_au" {
+  provider = aws.auregion
+  bucket                  = aws_s3_bucket.bucket_au.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
 
-output "bucket" {
-  value = aws_s3_bucket.bucket.arn
+
+output "bucketau" {
+  value = aws_s3_bucket.bucket_au.arn
 }
+
