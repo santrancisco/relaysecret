@@ -33,6 +33,7 @@ encfileElem.onchange = function(){selectfile(this.files)};
 txtFilename.onchange = function(){originalfilename=txtFilename.value.replace(/[^A-Za-z0-9\-\_\.]/g, '')};
 bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
 bCopyText.onclick = function(){copytextarea()};
+var datastoreregion="us"
 
 switchdiv('decrypt');
 /*-------------------------------NAVIGATE THE APP GUI--------------------------------*/
@@ -202,7 +203,7 @@ async function refreshfilelist(){
 }
 
 async function getMetadata(objkey) {
-    let url = lambdaurl + objkey;
+    let url = lambdaurl + objkey+ "?region=" + datastoreregion;
     response = await fetch(url);
     if (response.status == 404) {
         return
@@ -213,7 +214,7 @@ async function getMetadata(objkey) {
 }
 
 async function checkforvirus(filehash) {
-    let url = lambdaurl + "/sha1/"+filehash;
+    let url = lambdaurl + "/sha1/"+filehash+ "?region=" + datastoreregion;
     response = await fetch(url);
     data = await response.json();
     vtlink = data.vtlink
@@ -234,7 +235,7 @@ async function checkforvirus(filehash) {
 }
 
 async function gettunnelfilelist(tunnelid) {
-    let url = lambdaurl + "/listtunnel/"+tunnelid;
+    let url = lambdaurl + "listtunnel/"+tunnelid;
     response = await fetch(url);
     data = await response.json();
     return data;
@@ -244,7 +245,7 @@ async function uploadToS3(expire, bytearray) {
     var body = document.body;
     body.classList.add("loading");
     modalstatus.innerText="Getting presigned s3 URL for upload.";
-    var url = lambdaurl + 'gettunnel/'+ tunnelid;
+    var url = lambdaurl + 'gettunnel/'+ tunnelid+ "?region=" + datastoreregion;;
     var filemetadata = {
         name:originalfilename,
         deleteondownload:inputdeleteondownload.checked

@@ -385,6 +385,11 @@ async function downloadFromS3() {
     modalstatus.innerText="Download encrypted object from S3";
     if (response.status != 200) {
         spnDecstatus.innerText = "FAILED to download"
+        var body = document.body;
+        body.classList.remove("loading");
+        spnDecstatus.classList.remove("greenspan");
+        spnDecstatus.classList.add("redspan");
+        spnDecstatus.innerHTML = '<p>Cannot download file from S3..Try again?</p>';
         return
     }
     console.log(response.headers.get("x-amz-meta-tag"))
