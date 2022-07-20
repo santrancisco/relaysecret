@@ -43,6 +43,11 @@ expiretime.onchange = function(){savedropdown("expiretime",expiretime.selectedIn
 datastoreregion="us"
 regions = {"au": "Australia","us" : "United States", "eu": "Europe"}
 
+txtDecpassphrase.onmouseover = function(){this.type="text"};
+txtDecpassphrase.onmouseout = function(){this.type="password"};
+txtEncpassphrase.onmouseover = function(){this.type="text"};
+txtEncpassphrase.onmouseout = function(){this.type="password"};
+
 dataregion.onchange = function(){
     datastoreregion = dataregion[dataregion.selectedIndex].value;
     savedropdown("dataregion",dataregion.selectedIndex);

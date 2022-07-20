@@ -1,6 +1,8 @@
 // Get encrypted cloudflare KV stored clipboard data to local clipboard
 var currentclipboard = "";
 const getButton = document.getElementById('get');
+txtEncpassphrase.onmouseover = function(){this.type="text"};
+txtEncpassphrase.onmouseout = function(){this.type="password"};
 
 getButton.addEventListener('click', async () => {
     var body = document.body;
