@@ -35,6 +35,11 @@ bShowExtraInfo.onclick = function(){showmoredecryptioninfo()};
 bCopyText.onclick = function(){copytextarea()};
 var datastoreregion="us"
 
+txtDecpassphrase.onmouseover = function(){this.type="text"};
+txtDecpassphrase.onmouseout = function(){this.type="password"};
+txtEncpassphrase.onmouseover = function(){this.type="text"};
+txtEncpassphrase.onmouseout = function(){this.type="password"};
+
 switchdiv('decrypt');
 /*-------------------------------NAVIGATE THE APP GUI--------------------------------*/
 
