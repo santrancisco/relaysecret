@@ -7,28 +7,67 @@
 //
 // If the URL has no tunnelid we prompt for a room name and redirect.
 
-import { encryptBlob, decryptBlob, sha1Hex, sha256Hex } from './crypto.js';
+import { encryptBlob, decryptBlob, sha256Hex } from './crypto.js';
 import {
-  getTunnelUploadPresign, getDownloadPresign, listTunnel, deleteObject, checkSha1,
+  getTunnelUploadPresign, getDownloadPresign, listTunnel, deleteObject,
 } from './api.js';
 import {
   $, formatBytes, setStatus, getQueryParams, getFragment,
-  safeFilename, readFileBytes,
+  safeFilename, readFileBytes, createProgressFlow, showImageModal,
 } from './ui.js';
 
 const REGION = 'us'; // Tunnels are pinned to us for now (matches backend default).
 
 const state = {
   tunnelId: '',
-  tempKey: '',
   file: null,
 };
+
+// Read the tunnel temp key FRESH from the URL fragment at every action.
+// Relying on a cached `state.tempKey` was causing a symmetry bug where the
+// encrypt side and decrypt side could end up with different values (stale
+// state, autofill on an old field, back/forward navigation, etc.).
+function currentTempKey() {
+  return (getFragment() || '').trim();
+}
+
+// Read+normalize a password field's value. Trim handles iOS keyboard
+// autofill which can insert a leading/trailing space.
+function readPass(id) {
+  const el = $(id);
+  return el ? (el.value || '').trim() : '';
+}
+
+// Lazily create the encrypt / decrypt progress flow widgets.
+let _encFlow = null;
+let _decFlow = null;
+function encFlow() {
+  if (_encFlow) return _encFlow;
+  _encFlow = createProgressFlow($('encProgress'), [
+    'Read the file from disk',
+    'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
+    'Encrypt with AES-GCM-256 in your browser',
+    'Request a short-lived R2 upload URL',
+    'Upload ciphertext directly to R2',
+  ]);
+  return _encFlow;
+}
+function decFlow() {
+  if (_decFlow) return _decFlow;
+  _decFlow = createProgressFlow($('decProgress'), [
+    'Request a short-lived R2 download URL',
+    'Download ciphertext from R2',
+    'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
+    'Verify auth tag & decrypt (AES-GCM-256)',
+  ]);
+  return _decFlow;
+}
 
 // ---------------------------------------------------------------- bootstrap / room creation
 async function boot() {
   const q = getQueryParams();
-  state.tempKey = getFragment();
-  if (!q.tunnelid || !state.tempKey) {
+  const tempKey = currentTempKey();
+  if (!q.tunnelid || !tempKey) {
     await createRoom();
     return;
   }
@@ -122,26 +161,54 @@ function setFile(f) {
 
 $('btnUpload').onclick = async () => {
   if (!state.file) return;
+  const flow = encFlow();
+  flow.show();
+  flow.reset();
+  let currentStep = 0;
   try {
     document.body.classList.add('busy');
-    setStatus($('uploadStatus'), 'Reading file…');
+    setStatus($('uploadStatus'), 'Starting…');
+
+    flow.start(0);
     const plain = await readFileBytes(state.file);
     const filename = safeFilename($('filenameInput').value || state.file.name) || 'file.bin';
+    flow.done(0);
 
-    setStatus($('uploadStatus'), 'Encrypting…');
-    const blob = await encryptBlob(plain, $('passInput').value, state.tempKey);
+    // Capture tempKey + password ONCE at action time, so anything that
+    // happens to the input fields after this point can't mess up the
+    // symmetry with the decrypt side.
+    const tempKey = currentTempKey();
+    const pass = readPass('encPassInput');
 
+    currentStep = 1;
+    flow.start(1); // Derive + encrypt happen together inside encryptBlob;
+                   // we split them visually by flipping done(1) + start(2)
+                   // right before the AES call.
+    // Microtask yield so the browser paints the "active" spinner before
+    // PBKDF2 blocks the main thread for ~0.8s.
+    await new Promise((r) => setTimeout(r, 16));
+    flow.done(1);
+    flow.start(2);
+    const blob = await encryptBlob(plain, pass, tempKey);
+    flow.done(2);
+
+    currentStep = 3;
+    flow.start(3);
     setStatus($('uploadStatus'), 'Requesting upload URL…');
     const p = await getTunnelUploadPresign({
       region: REGION, tunnel: state.tunnelId, filename,
       deleteOnDownload: $('dodInput').checked,
     });
+    flow.done(3);
 
+    currentStep = 4;
+    flow.start(4);
     setStatus($('uploadStatus'), 'Uploading ' + formatBytes(blob.length) + '…');
     const res = await fetch(p.url, { method: 'PUT', headers: p.requiredHeaders, body: blob });
     if (!res.ok) throw new Error('Upload HTTP ' + res.status);
+    flow.done(4);
 
-    setStatus($('uploadStatus'), 'Uploaded.', 'ok');
+    setStatus($('uploadStatus'), 'Uploaded and encrypted end-to-end.', 'ok');
     state.file = null;
     $('dzFileInfo').textContent = '';
     dz.classList.remove('filled');
@@ -149,6 +216,7 @@ $('btnUpload').onclick = async () => {
     await refreshList();
   } catch (err) {
     console.error(err);
+    flow.error(currentStep);
     setStatus($('uploadStatus'), err.message || 'Upload failed.', 'err');
   } finally {
     document.body.classList.remove('busy');
@@ -164,17 +232,42 @@ async function decryptOne(f) {
   const a = $('decDownload');
   card.classList.remove('hidden');
   ta.classList.add('hidden'); img.classList.add('hidden'); a.classList.add('hidden');
+
+  const flow = decFlow();
+  flow.show();
+  flow.reset();
+  let currentStep = 0;
+
   try {
     document.body.classList.add('busy');
+
+    flow.start(0);
     setStatus(status, 'Fetching download URL…');
     const meta = await getDownloadPresign({ region: REGION, key: f.key });
+    flow.done(0);
+
+    currentStep = 1;
+    flow.start(1);
     setStatus(status, 'Downloading ciphertext…');
     const res = await fetch(meta.url);
     if (!res.ok) throw new Error('Download HTTP ' + res.status);
     const cipher = new Uint8Array(await res.arrayBuffer());
+    flow.done(1);
 
-    setStatus(status, 'Decrypting…');
-    const plain = await decryptBlob(cipher, $('passInput').value, state.tempKey);
+    // Capture pass + tempkey ONCE — matches the encrypt side exactly.
+    const tempKey = currentTempKey();
+    const pass = readPass('decPassInput');
+
+    currentStep = 2;
+    flow.start(2);
+    await new Promise((r) => setTimeout(r, 16));
+    flow.done(2);
+
+    currentStep = 3;
+    flow.start(3);
+    setStatus(status, 'Verifying & decrypting…');
+    const plain = await decryptBlob(cipher, pass, tempKey);
+    flow.done(3);
 
     const name = safeFilename(meta.objname || f.objname) || 'file.bin';
     const blobUrl = URL.createObjectURL(new Blob([plain], { type: 'application/octet-stream' }));
@@ -182,7 +275,9 @@ async function decryptOne(f) {
 
     const ext = name.split('.').pop().toLowerCase();
     if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-      img.src = blobUrl; img.classList.remove('hidden');
+      img.src = blobUrl;
+      img.classList.remove('hidden');
+      img.onclick = () => showImageModal(blobUrl);
     } else if (name.endsWith('.txt') || ext === 'txt') {
       ta.value = new TextDecoder().decode(plain);
       ta.classList.remove('hidden');
@@ -190,21 +285,20 @@ async function decryptOne(f) {
 
     setStatus(status, 'Decrypted: ' + name, 'ok');
 
-    // Background VT check
-    sha1Hex(plain).then(checkSha1).then((vt) => {
-      if (vt && vt.detect) {
-        setStatus(status,
-          'WARNING: VirusTotal flagged this file (' + vt.positives + '/' + vt.total + ')',
-          'err');
-      }
-    }).catch(() => {});
-
     if (meta.deleteondownload) {
       deleteObject({ region: REGION, key: f.key }).then(refreshList).catch(() => {});
     }
   } catch (err) {
     console.error(err);
-    setStatus(status, 'Decrypt failed — wrong password or tampered data.', 'err');
+    flow.error(currentStep);
+    const isCrypto = err && /decrypt|OperationError|tag/i.test(String(err && err.message || err));
+    setStatus(
+      status,
+      isCrypto
+        ? 'Decrypt failed — wrong password, or the uploader used a password you need to type in.'
+        : (err.message || 'Decrypt failed.'),
+      'err'
+    );
   } finally {
     document.body.classList.remove('busy');
   }

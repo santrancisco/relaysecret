@@ -3,16 +3,43 @@
 // Two jobs:
 //   1. ENCRYPT: message or file -> AES-GCM -> PUT presigned URL -> share link
 //   2. DECRYPT: when ?obj=...&region=...#tempkey is present, fetch, decrypt
-//               and offer download + optional VT check.
+//               and offer download.
 
-import { encryptBlob, decryptBlob, sha1Hex, randomTempKey } from './crypto.js';
+import { encryptBlob, decryptBlob, randomTempKey } from './crypto.js';
 import {
-  getUploadPresign, getDownloadPresign, deleteObject, checkSha1, ApiError,
+  getUploadPresign, getDownloadPresign, deleteObject, ApiError,
 } from './api.js';
 import {
   $, formatBytes, setStatus, getQueryParams, getFragment,
   safeFilename, copyToClipboard, b64url, readFileBytes,
+  createProgressFlow, showImageModal,
 } from './ui.js';
+
+// Lazy progress flow widgets for the encrypt / decrypt paths.
+let _encFlow = null;
+let _decFlow = null;
+function encFlow() {
+  if (_encFlow) return _encFlow;
+  _encFlow = createProgressFlow($('encProgress'), [
+    'Read message / file bytes',
+    'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
+    'Encrypt with AES-GCM-256 in your browser',
+    'Request a short-lived R2 upload URL',
+    'Upload ciphertext directly to R2',
+    'Build share URL (key stays in #fragment)',
+  ]);
+  return _encFlow;
+}
+function decFlow() {
+  if (_decFlow) return _decFlow;
+  _decFlow = createProgressFlow($('decProgress'), [
+    'Request a short-lived R2 download URL',
+    'Download ciphertext from R2',
+    'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
+    'Verify auth tag & decrypt (AES-GCM-256)',
+  ]);
+  return _decFlow;
+}
 
 const MSG_FILENAME = 'messageinbrowser.txt';
 
@@ -80,10 +107,15 @@ function setFile(f) {
 
 // ---------------------------------------------------------------- encrypt flow
 $('btnEncrypt').onclick = async () => {
+  const flow = encFlow();
+  flow.show();
+  flow.reset();
+  let currentStep = 0;
   try {
     document.body.classList.add('busy');
-    setStatus($('encStatus'), 'Reading input…');
 
+    flow.start(0);
+    setStatus($('encStatus'), 'Reading input…');
     let plaintext, filename;
     if (state.mode === 'message') {
       plaintext = new TextEncoder().encode($('msgInput').value);
@@ -94,11 +126,24 @@ $('btnEncrypt').onclick = async () => {
       filename = safeFilename($('filenameInput').value || state.file.name) || 'file.bin';
     }
     if (plaintext.length === 0) throw new Error('Nothing to encrypt.');
+    flow.done(0);
 
     state.tempKey = randomTempKey();
-    setStatus($('encStatus'), 'Encrypting (AES-GCM-256, 600k PBKDF2 iters)…');
-    const blob = await encryptBlob(plaintext, $('passInput').value, state.tempKey);
+    const pass = ($('passInput').value || '').trim();
 
+    currentStep = 1;
+    flow.start(1);
+    await new Promise((r) => setTimeout(r, 16)); // let spinner paint
+    flow.done(1);
+
+    currentStep = 2;
+    flow.start(2);
+    setStatus($('encStatus'), 'Encrypting with AES-GCM-256…');
+    const blob = await encryptBlob(plaintext, pass, state.tempKey);
+    flow.done(2);
+
+    currentStep = 3;
+    flow.start(3);
     setStatus($('encStatus'), 'Requesting upload URL…');
     const region = $('regionSelect').value;
     const expire = $('expireSelect').value;
@@ -106,7 +151,10 @@ $('btnEncrypt').onclick = async () => {
     const presign = await getUploadPresign({
       region, expire, filename, deleteOnDownload: dod,
     });
+    flow.done(3);
 
+    currentStep = 4;
+    flow.start(4);
     setStatus($('encStatus'), 'Uploading ciphertext (' + formatBytes(blob.length) + ')…');
     const putRes = await fetch(presign.url, {
       method: 'PUT',
@@ -114,11 +162,17 @@ $('btnEncrypt').onclick = async () => {
       body: blob,
     });
     if (!putRes.ok) throw new Error('Upload failed: HTTP ' + putRes.status);
+    flow.done(4);
 
+    currentStep = 5;
+    flow.start(5);
     showShareUrl(presign.region || region, presign.key, state.tempKey);
-    setStatus($('encStatus'), 'Uploaded.', 'ok');
+    flow.done(5);
+
+    setStatus($('encStatus'), 'Encrypted end-to-end and uploaded.', 'ok');
   } catch (err) {
     console.error(err);
+    flow.error(currentStep);
     setStatus($('encStatus'), err.message || 'Encryption failed.', 'err');
   } finally {
     document.body.classList.remove('busy');
@@ -189,29 +243,49 @@ async function initDecryptFromUrl() {
 
 $('btnDecrypt').onclick = async () => {
   if (!state.meta) return;
+  const flow = decFlow();
+  flow.show();
+  flow.reset();
+  let currentStep = 0;
   try {
     document.body.classList.add('busy');
+
+    // Metadata was already fetched during initDecryptFromUrl; mark step 0
+    // as done up-front since we have the presigned GET URL already.
+    flow.done(0);
+
+    currentStep = 1;
+    flow.start(1);
     setStatus($('decStatus'), 'Downloading ciphertext…');
     const res = await fetch(state.meta.url);
     if (!res.ok) throw new Error('Download failed: HTTP ' + res.status);
     const blob = new Uint8Array(await res.arrayBuffer());
+    flow.done(1);
 
-    setStatus($('decStatus'), 'Decrypting…');
-    const frag = getFragment();
-    const plain = await decryptBlob(blob, $('decPassInput').value, frag);
+    const frag = (getFragment() || '').trim();
+    const pass = ($('decPassInput').value || '').trim();
+
+    currentStep = 2;
+    flow.start(2);
+    await new Promise((r) => setTimeout(r, 16));
+    flow.done(2);
+
+    currentStep = 3;
+    flow.start(3);
+    setStatus($('decStatus'), 'Verifying & decrypting…');
+    const plain = await decryptBlob(blob, pass, frag);
     state.plaintext = plain;
+    flow.done(3);
 
     await showDecrypted();
     setStatus($('decStatus'), 'Decrypted.', 'ok');
-
-    // Fire VT check in background. Errors here are non-fatal.
-    checkVt(plain).catch(() => {});
 
     if (state.meta.deleteondownload) {
       deleteObject({ region: state.region, key: state.objKey }).catch(() => {});
     }
   } catch (err) {
     console.error(err);
+    flow.error(currentStep);
     setStatus($('decStatus'), 'Decrypt failed — wrong password, tampered data, or expired link.', 'err');
   } finally {
     document.body.classList.remove('busy');
@@ -238,12 +312,13 @@ async function showDecrypted() {
   a.download = filename;
   a.classList.remove('hidden');
 
-  // Inline preview for common image types.
+  // Inline preview for common image types. Click to enlarge.
   const ext = filename.split('.').pop().toLowerCase();
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
     const img = $('decImg');
     img.src = blobUrl;
     img.classList.remove('hidden');
+    img.onclick = () => showImageModal(blobUrl);
   }
 
   if (!state.meta.deleteondownload) {
@@ -259,18 +334,6 @@ async function showDecrypted() {
       }
     };
   }
-}
-
-async function checkVt(plain) {
-  try {
-    const hash = await sha1Hex(plain);
-    const vt = await checkSha1(hash);
-    if (vt && vt.detect) {
-      setStatus($('decStatus'),
-        'WARNING: VirusTotal flagged this file (' + vt.positives + '/' + vt.total + '). ' + (vt.vtlink || ''),
-        'err');
-    }
-  } catch (_) { /* VT disabled or offline — not fatal */ }
 }
 
 // ---------------------------------------------------------------- boot

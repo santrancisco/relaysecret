@@ -181,3 +181,192 @@ img.preview {
 /* --- Busy overlay (minimal) ---------------------------------------- */
 body.busy { cursor: progress; }
 body.busy button { pointer-events: none; opacity: 0.6; }
+
+/* --- Progress flow ------------------------------------------------- */
+/* A vertical step list with a rail down the left and a state icon
+   next to each step. Shows what the app is doing (and did) so the
+   user can see exactly where their data is in the pipeline. */
+.progress-flow-container {
+  background: #FAF6EE;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.progress-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+.progress-flow .step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0 var(--sp-2) var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  min-height: 28px;
+  transition: color .2s ease;
+}
+/* Vertical rail connecting the step icons. */
+.progress-flow .step::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-border);
+}
+.progress-flow .step:first-child::before { top: 50%; }
+.progress-flow .step:last-child::before  { bottom: 50%; }
+.progress-flow .step:only-child::before  { display: none; }
+
+/* The round state icon. */
+.progress-flow .step-icon {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  transition: border-color .25s ease, background .25s ease, transform .25s ease;
+  z-index: 1;
+}
+
+/* ---- state: pending (default) ------------------------------------ */
+.progress-flow .step[data-state="pending"] .step-icon::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+
+/* ---- state: active (spinner) ------------------------------------- */
+.progress-flow .step[data-state="active"] {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+.progress-flow .step[data-state="active"] .step-icon {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  transform: translateY(-50%) scale(1.08);
+}
+.progress-flow .step[data-state="active"] .step-icon::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  border-top-color: transparent;
+  animation: pf-spin 0.75s linear infinite;
+}
+@keyframes pf-spin { to { transform: rotate(360deg); } }
+
+/* ---- state: done (checkmark) ------------------------------------- */
+.progress-flow .step[data-state="done"] {
+  color: var(--color-text-primary);
+}
+.progress-flow .step[data-state="done"] .step-icon {
+  background: var(--color-success, #2E7D5B);
+  border-color: var(--color-success, #2E7D5B);
+}
+.progress-flow .step[data-state="done"] .step-icon::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 10px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+/* ---- state: error (cross) ---------------------------------------- */
+.progress-flow .step[data-state="error"] {
+  color: var(--color-danger);
+}
+.progress-flow .step[data-state="error"] .step-icon {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  animation: pf-shake 0.3s ease;
+}
+.progress-flow .step[data-state="error"] .step-icon::before,
+.progress-flow .step[data-state="error"] .step-icon::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 2px;
+  background: #fff;
+}
+.progress-flow .step[data-state="error"] .step-icon::before { transform: translate(-50%,-50%) rotate(45deg); }
+.progress-flow .step[data-state="error"] .step-icon::after  { transform: translate(-50%,-50%) rotate(-45deg); }
+@keyframes pf-shake {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  25%      { transform: translateY(-50%) translateX(-3px); }
+  75%      { transform: translateY(-50%) translateX(3px); }
+}
+
+/* --- Image zoom modal --------------------------------------------- */
+.image-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 24, 0.85);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+  cursor: zoom-out;
+  animation: pf-fadein .2s ease;
+}
+@keyframes pf-fadein { from { opacity: 0; } to { opacity: 1; } }
+.image-modal-content {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+.image-modal-content img {
+  max-width: 95vw;
+  max-height: 90vh;
+  border-radius: var(--radius-md);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: block;
+  object-fit: contain;
+}
+.image-modal-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 22px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+.image-modal-close:hover { background: var(--color-border); }
+
+/* Make the preview image a clickable affordance. */
+img.preview { cursor: zoom-in; transition: transform .15s ease; }
+img.preview:hover { transform: translateY(-1px); }

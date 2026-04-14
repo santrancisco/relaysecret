@@ -26,8 +26,8 @@
       <p class="muted" id="tunnelInfo">Loading…</p>
 
       <div class="field">
-        <label for="passInput">Password (optional)</label>
-        <input id="passInput" type="password" autocomplete="off">
+        <label for="decPassInput">Password to decrypt (if one was set when uploading)</label>
+        <input id="decPassInput" type="password" autocomplete="new-password">
       </div>
 
       <table class="filelist">
@@ -43,6 +43,8 @@
         <button id="btnRefresh" type="button">Refresh list</button>
         <span id="listStatus" class="muted grow"></span>
       </div>
+
+      <div id="decProgress" class="hidden"></div>
     </div>
 
     <div class="card stack">
@@ -57,6 +59,10 @@
         <label for="filenameInput">Filename (metadata, not encrypted)</label>
         <input id="filenameInput" type="text" autocomplete="off">
       </div>
+      <div class="field">
+        <label for="encPassInput">Password (optional — extra layer on top of the tunnel key)</label>
+        <input id="encPassInput" type="password" autocomplete="new-password">
+      </div>
       <div class="checkbox-row">
         <input type="checkbox" id="dodInput">
         <label for="dodInput">Delete on first download</label>
@@ -65,6 +71,7 @@
         <button id="btnUpload" class="primary" type="button" disabled>Encrypt &amp; Upload</button>
         <span id="uploadStatus" class="muted grow"></span>
       </div>
+      <div id="encProgress" class="hidden"></div>
     </div>
 
     <div class="card stack hidden" id="decCard">
