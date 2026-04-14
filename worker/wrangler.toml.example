@@ -1,0 +1,64 @@
+# This file is a TEMPLATE. deploy/deploy.sh copies it to wrangler.toml and
+# substitutes the __PLACEHOLDER__ tokens with values from deploy/config.env.
+# If you are deploying by hand, do the same substitution yourself.
+
+name = "__WORKER_NAME__"
+main = "src/index.js"
+compatibility_date = "2024-11-06"
+
+# ---------------------------------------------------------------------------
+# Public, non-secret bucket names. The Worker reads these via env and uses
+# them when building SigV4 presigned URLs, so they must match the real
+# bucket names created by deploy/lib/r2.sh.
+#
+# NOTE: FRONTEND_ORIGIN, SEED, R2_ACCOUNT_ID are set via `wrangler secret put`
+# by deploy.sh, NOT declared here as [vars] — otherwise wrangler errors with
+# "binding already defined" when the secret is also set.
+# ---------------------------------------------------------------------------
+[vars]
+R2_US_BUCKET   = "__R2_BUCKET_US__"
+R2_EU_BUCKET   = "__R2_BUCKET_EU__"
+R2_APAC_BUCKET = "__R2_BUCKET_APAC__"
+
+# ---------------------------------------------------------------------------
+# R2 bucket bindings. The Worker uses these for binding-mode operations
+# (list, head, delete). Presigned PUT/GET URLs are built by SigV4 and hit
+# the S3-compatible endpoint directly, which is why R2_ACCOUNT_ID,
+# R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY are set as secrets.
+# ---------------------------------------------------------------------------
+[[r2_buckets]]
+binding     = "R2_US"
+bucket_name = "__R2_BUCKET_US__"
+
+[[r2_buckets]]
+binding     = "R2_EU"
+bucket_name = "__R2_BUCKET_EU__"
+
+[[r2_buckets]]
+binding     = "R2_APAC"
+bucket_name = "__R2_BUCKET_APAC__"
+
+# ---------------------------------------------------------------------------
+# KV namespace for the clipboard.
+# ---------------------------------------------------------------------------
+[[kv_namespaces]]
+binding = "CLIPBOARD_KV"
+id      = "__KV_NAMESPACE_ID__"
+
+# ---------------------------------------------------------------------------
+# Secrets set by `deploy.sh` via `wrangler secret put` (never committed):
+#
+#   R2_ACCOUNT_ID           Cloudflare account id (used in SigV4 host)
+#   R2_ACCESS_KEY_ID        R2 S3-compatible access key
+#   R2_SECRET_ACCESS_KEY    R2 S3-compatible secret
+#   VT_API_KEY              VirusTotal API key ("none" to disable)
+#   HMAC_SECRET             optional upload-gate HMAC secret ("none" to disable)
+#   FRONTEND_ORIGIN         e.g. "https://www.relaysecret.com" ("devmode" disables gate)
+#   SEED                    random seed for object-key generation
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Custom domain — api.relaysecret.com is bound via the Cloudflare API in
+# deploy/lib/worker.sh (worker_bind_domain), not here. Leaving routes = [...]
+# empty so `wrangler deploy` does not try to manage the domain itself.
+# ---------------------------------------------------------------------------

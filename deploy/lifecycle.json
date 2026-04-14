@@ -1,0 +1,63 @@
+{
+  "rules": [
+    {
+      "id": "expire-1day",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "1day/" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 86400 }
+      }
+    },
+    {
+      "id": "expire-2day",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "2day/" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 172800 }
+      }
+    },
+    {
+      "id": "expire-3day",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "3day/" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 259200 }
+      }
+    },
+    {
+      "id": "expire-4day",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "4day/" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 345600 }
+      }
+    },
+    {
+      "id": "expire-5day",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "5day/" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 432000 }
+      }
+    },
+    {
+      "id": "expire-10day",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "10day/" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 864000 }
+      }
+    },
+    {
+      "id": "expire-catchall",
+      "enabled": true,
+      "conditions": { "type": "prefix", "prefix": "" },
+      "deleteObjectsTransition": {
+        "condition": { "type": "Age", "maxAge": 950400 }
+      },
+      "abortMultipartUploadsTransition": {
+        "condition": { "type": "Age", "maxAge": 86400 }
+      }
+    }
+  ]
+}

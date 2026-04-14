@@ -1,231 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-	<meta charset="utf-8">
-	<title>Send files safely, encryption done in browser.</title>
-	<meta http-equiv="Content-Security-Policy" content="script-src 'self' ">
-	<style type="text/css">
-		@import url(../assets/font.css);
-	</style>
-	
-	<meta name="viewport" content="maximum-scale=1.0, user-scalable=0" />
-	<link rel="stylesheet" href="../assets/light.min.css">
-	<link href="../assets/tooltip.css" rel="stylesheet" type="text/css" />
-	<link href="../assets/main.css" rel="stylesheet" type="text/css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relay Secret — Tunnel</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="stylesheet" href="/assets/tokens.css">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/config.js"></script>
 </head>
-
 <body>
+  <header class="site-header">
+    <h1 class="wordmark"><a href="/">Relay Secret</a></h1>
+    <nav>
+      <a href="/">Send</a>
+      <a href="/tunnel/" class="active">Tunnel</a>
+      <a href="/clipboard/">Clipboard</a>
+    </nav>
+    <p class="tagline">Rooms for ad-hoc exchange. Everyone who has the link sees the same file list. 1-day expiry.</p>
+  </header>
 
-	<span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret">Fork me on GitHub</a></span>
-	<div name="pageheader" class=container>
-		<div class="divTablefullwidth">
-			<div class="divTableBody">
-				<div class="divTableRow"><h1 class="header__title">Relay Secret Tunnel 🚇</h1></div>
-				<div class="divTableRow">
-					<div class="divTableCell" style="float: left;">
-						
-						<i>Tunnel mode only keeps data for 1 day</i>
-					</div>
-				</div>
-				<div class="divTableRow">
-					<div class="divTableCell" style="float: left;">
-							<button id="btnDivEncMes">
-								Encrypt a message
-							</button>
-							<button id="btnDivEncrypt">
-								Encrypt a File</button>
-							<button id="btnDivDecrypt">
-								Decrypt</button>
-							<button id="btnRefresh">
-								Refresh List
-							</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+  <main class="page">
+    <div class="card stack">
+      <h2>Tunnel files</h2>
+      <p class="muted" id="tunnelInfo">Loading…</p>
 
-	
-	<hr>
+      <div class="field">
+        <label for="decPassInput">Password to decrypt (if one was set when uploading)</label>
+        <input id="decPassInput" type="password" autocomplete="new-password">
+      </div>
 
-	<div class="container" id=divEncrypt style="display:none">
-		<div id=divEncryptMessage>
-			<h2>Encrypt a message</h2>
-			<div>
-				<textarea placeholder="please enter your secret message here..." id="textareaEncryptmessage" name="secret" maxlength="500"></textarea>
-			</div>
-		</div>
-		<div id=divEncryptFile>
-			<h2 ><span data-tooltip title="If you need to send more than 1 file, please compress them into a single zip file.">Encrypt a File</span></h2>
-			<p>To encrypt and send a file, drop the file (Max 200Mb)</p>
-			<p><u style="color:#FF851d">Note: Filename is not encrypted! Change it if you must.</u></p>
-			<div>
-				<div class=dropzone id="encdropzone">
-					<p>Drag and drop the file to be encrypted into this dropzone, or 
-						<a id=adropzone ><b>click here</b></a> to select file.</p>
-					<p><b><span id=spnencfilename></span></b></p>
-				</div>
-				<input type="file" id="encfileElem" style="display:none" autocomplete='off'>
-			</div>
-		</div>
-		<p></p>
-		<div class="divTable">
-			<div class="divTableBody">
-				<div class="divTableRow" id=divFilename>
-					<div class="divTableCell"><span class="tool" data-tooltip title="File name is stored in plaintext to let the recipients know what they might receive.">File Name</span></div>
-					<div class="divTableCell">
-						<input id=txtFilename size=30 value='' autocomplete='off'>
-						<span class="passwordDesc" style="color: orange">Note: You can change and encrypt the filename here for additional security.</span>
-					</div>
-				</div>
-				<div class="divTableRow" id=divMsgTitle>
-					<div class="divTableCell"><span class="tool" data-tooltip title="Message Title is stored in plaintext and a txt extension is added.">Msg Title</span></div>
-					<div class="divTableCell">
-						<input id=msgtitle size=30 value='' autocomplete='off'>
-						<span class="passwordDesc" style="color: orange">Note: Msg title is in clear text and will have a txt extension added.</span>
-					</div>
-				</div>
-				<div class="divTableRow">
-					<div class="divTableCell"><span class="tool" data-tooltip title="Password provides additional security but is optional. 
-Your data will always be encrypted">Password</span></div>
-					<div class="divTableCell">
-						<input id="txtEncpassphrase" size=30 value='' type='password' autocomplete='off'>
-						<span class="passwordDesc">Optional for extra security only. Your data will always be encrypted.</span>
-					</div>
-				</div>
-			</div>
-		</div>
-		<p> </p>
-		<div class="divTable">
-			<div class="divTableBody">
-				<div class="divTableRow">
-					<div class="divTableCell"><button id=btnEncrypt disabled>Encrypt & Upload</button></div>
-					<input type="checkbox" id="inputdeleteondownload" name="inputdeleteondownload" value="false" autocomplete='off'>
-					<label for="inputdeleteondownload"> <span class="tool" data-tooltip title="Set if data should be removed immediately after decryption" tabindex="1">Delete On Download</span> </label><br>
-				</div>
-				<div class="divTableRow">
-					<div class="divTableCell"><span id=spnEncstatus></span></div>
-				</div>
+      <table class="filelist">
+        <thead>
+          <tr><th>Filename</th><th>Size</th><th></th></tr>
+        </thead>
+        <tbody id="fileListBody">
+          <tr><td colspan="3" class="muted">No files yet.</td></tr>
+        </tbody>
+      </table>
 
-			</div>
-		</div>
-		<p> </p>
-		<div class="divTable">
-			<div class="divTableBody">
+      <div class="row">
+        <button id="btnRefresh" type="button">Refresh list</button>
+        <span id="listStatus" class="muted grow"></span>
+      </div>
 
-			</div>
-		</div>
+      <div id="decProgress" class="hidden"></div>
+    </div>
 
-		<p> </p>
-	</div>
+    <div class="card stack">
+      <h2>Upload to this tunnel</h2>
+      <p class="muted">Files are encrypted in your browser with the tunnel key before upload. Max 2 GB per file.</p>
+      <div class="dropzone" id="dropzone">
+        <p>Drag &amp; drop a file, or <a href="#" id="dzPick"><b>click to select</b></a>.</p>
+        <p class="file-info" id="dzFileInfo"></p>
+      </div>
+      <input type="file" id="fileInput" class="hidden" autocomplete="off">
+      <div class="field">
+        <label for="filenameInput">Filename (metadata, not encrypted)</label>
+        <input id="filenameInput" type="text" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="encPassInput">Password (optional — extra layer on top of the tunnel key)</label>
+        <input id="encPassInput" type="password" autocomplete="new-password">
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="dodInput">
+        <label for="dodInput">Delete on first download</label>
+      </div>
+      <div class="row">
+        <button id="btnUpload" class="primary" type="button" disabled>Encrypt &amp; Upload</button>
+        <span id="uploadStatus" class="muted grow"></span>
+      </div>
+      <div id="encProgress" class="hidden"></div>
+    </div>
 
-	<div class="container" id=divEncryptResult style="display:none">
-		<div class="container">
-				<h2>Download URL:</h2><br>
-				<i>Only share this url to someone you trust.</i>
-				<br>
-				<h3><b><span id=spandownloadurl></span></b></h3>
-				<br>
-				<button id=bShowExtraInfo>Explain this URL</button>
+    <div class="card stack hidden" id="decCard">
+      <h2>Decrypted</h2>
+      <p id="decStatus" class="muted"></p>
+      <textarea id="decMsgOut" class="hidden" readonly></textarea>
+      <img id="decImg" class="preview hidden" alt="decrypted preview">
+      <div class="row">
+        <a id="decDownload" class="btn primary hidden" download>Save decrypted file</a>
+      </div>
+    </div>
+  </main>
 
-		</div>
-		<div class="divTableBody" id=divExtraDecResult style="display:none">
-			<div class="divTableRow">
-				<p style="color: #0074D9;">Encrypted obj: <span id="span_objname"></span></p>
-				<p style="color: #FF851B;">Key material: <span id="span_keymat"></span></p>
-			</div>
-			<div class="divTableRow">
-				<p>
-					<b>FAQ: </b> 
-					<br>
-					<p><i>Does your server know my master password/key?</i> 
-						<br>No, the key material used to construct the AES password is behind an anchortag (#) which never leave your browser. You can find more information in <a
-							href="https://en.wikipedia.org/wiki/URI_fragment">wikipedia (URI fragment)</a> and on official <a href="https://tools.ietf.org/html/rfc1808#section-2.4.1">RFC1808</a>. Ontop of that, you can add your own password to further protect the master password/key used to encrypt the data.</b>
-					</p>
-					<p><i>Is this file or message uploaded to the server in plaintext?</i> 
-						<br> No, never. Whether you choose to use password or not, the message(or file) is always encrypted with AES256 inside your browser. The encrypted data is then uploaded & stored on Amazon S3. You can verify this by inspecting the network traffic in browser Developer Tool.
-					</p>
-					<p><i>How could I trust you?</i> 
-						<br> The source code for the entire site and backend is opensourced. You can review it and if you don't trust my deployment, feel free to roll your own. It is very cheap to run and you most likely won't use up the AWS free tier.
-					</p>
-				</p>
-			</div>
-		</div>
-	</div>
-
-	<div class="container" id=divDecrypt style="display:none">
-		<h2>Decrypt a File</h2>
-		<p><span id="spnDecstatus"></span></p>
-		<div class="container" id=divDecryptInfo>
-			<div class="divTable">
-				<div class="divTableBody">
-					<div class="divTableRow">
-						<div class="divTableCell">Password</div>
-						<div class="divTableCell"><input id=txtDecpassphrase size=30 value='' type='password' autocomplete='off'></div>
-						<div class="divTableCell">(if provided by sender)</div>
-					</div>
-				</div>
-			</div>
-			<table class="nozebra">
-				<thead>
-					<tr>
-					<th>Filename</th>
-					<th></th>
-					<th></th>
-					</tr>
-				</thead>
-				<tbody id="filelist">
-					<!-- <tr>
-					<td>File2</td>
-					<td><button>Download</button></td>
-					<td><button>Delete</button></td>
-				  </tr> -->
-				</tbody>
-				
-			  </table>
-			
-			<p> </p>
-
-		</div>
-		<hr>
-		<div class="container" id=divDecryptResult style="display:none">
-			<div id=divDecryptmessage style="display:none">
-				<h3>Decrypted message</h3>
-				<div>
-					<textarea id="textareaDecryptmessage" maxlength="500"></textarea>
-					
-				</div>
-			</div>
-			<div id=divDecryptImage style="display:none">
-				<img id="imgDecryptImage">
-			</div>
-			<br>
-			<div id=divDecsavefile hidden>
-				<button id=bCopyText hidden>Copy text</button>
-				<a id=aDecsavefile><button id=bDownloadDecFile>Save Decrypted File</button></a> 
-			</div>
-			<p></p>
-			<div id=aDeleteFile ><button id=bDeleteFile>Delete File</button> 
-			<span>(Please delete immediately if you think this file is malicious)</span></div>
-		</div>
-	</div>
-
-	</div>
-	<BR>
-	<div class="modal modalstatus">
-		<div class="modal-grid">
-			<div id="modalstatus" class="modal-grid-item">
-				Please wait ...
-			</div>
-		</div>
-	</div>
+  <script type="module" src="/assets/tunnel.js"></script>
 </body>
-
-<script src="../assets/config.js"></script>
-<script src="./assets/main.js"></script>
-<script src="../assets/tooltip.js"></script>
 </html>
-
-
-

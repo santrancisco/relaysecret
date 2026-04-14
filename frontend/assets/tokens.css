@@ -1,0 +1,185 @@
+/* RelaySecret design tokens — AgentDefenders theme.
+   Single source of truth; every page imports this first. */
+
+:root {
+  /* --- Colors (light) --- */
+  --color-bg: #F2EDE4;           /* warm cream page bg */
+  --color-surface: #FFFFFF;      /* cards, panels */
+  --color-text-primary: #1A1A18; /* headings, body */
+  --color-text-muted: #5F5E5A;   /* subtext, captions */
+  --color-accent: #C0392B;       /* brand red — CTA, logo */
+  --color-accent-hover: #A5321F;
+  --color-border: #E8E0D6;       /* subtle dividers */
+  --color-code-bg: #1A1A18;      /* terminal dark bg */
+  --color-code-syntax: #4A9CE8;  /* curl URL highlight */
+  --color-success: #2E7D5B;
+  --color-danger: #C0392B;
+  --color-warning: #D4941E;
+
+  /* --- Typography --- */
+  --font-display: Georgia, 'Times New Roman', serif;
+  --font-ui: 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* --- Scale --- */
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.9375rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: 2.25rem;
+
+  /* --- Spacing --- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-12: 3rem;
+
+  /* --- Radius / elevation --- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-sm: 0 1px 2px rgba(26,26,24,0.06);
+  --shadow-md: 0 4px 12px rgba(26,26,24,0.08);
+
+  /* --- Layout --- */
+  --content-max: 760px;
+}
+
+/* --- Base reset --- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 {
+  font-family: var(--font-display);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--sp-4);
+  line-height: 1.2;
+}
+h1 { font-size: var(--fs-3xl); }
+h2 { font-size: var(--fs-2xl); }
+h3 { font-size: var(--fs-xl); }
+p { margin: 0 0 var(--sp-4); }
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { color: var(--color-accent-hover); text-decoration: underline; }
+code, pre, .mono { font-family: var(--font-mono); font-size: var(--fs-sm); }
+
+/* --- Layout --- */
+.page {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-8) var(--sp-4);
+}
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--sp-6);
+  margin-bottom: var(--sp-6);
+}
+.stack > * + * { margin-top: var(--sp-4); }
+
+/* --- Buttons --- */
+button, .btn {
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  padding: var(--sp-3) var(--sp-6);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+button:hover, .btn:hover { border-color: var(--color-text-muted); }
+button[disabled] { opacity: 0.5; cursor: not-allowed; }
+button.primary, .btn.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+button.primary:hover, .btn.primary:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+/* --- Form controls --- */
+input[type="text"], input[type="password"], select, textarea {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: var(--fs-base);
+  padding: var(--sp-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  border-color: var(--color-accent);
+}
+label { display: block; font-size: var(--fs-sm); color: var(--color-text-muted); margin-bottom: var(--sp-1); }
+
+/* --- Dropzone --- */
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-8);
+  text-align: center;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.dropzone:hover, .dropzone.over {
+  border-color: var(--color-accent);
+  background: #FFFBF5;
+}
+
+/* --- Code/URL display --- */
+.code-block {
+  background: var(--color-code-bg);
+  color: #E8E0D6;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: var(--sp-4);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  word-break: break-all;
+}
+.code-block .highlight { color: var(--color-code-syntax); }
+
+/* --- Status --- */
+.status-ok { color: var(--color-success); }
+.status-err { color: var(--color-danger); }
+.status-warn { color: var(--color-warning); }
+
+/* --- Responsive --- */
+@media (max-width: 640px) {
+  .page { padding: var(--sp-4) var(--sp-3); }
+  .card { padding: var(--sp-4); }
+  h1 { font-size: var(--fs-2xl); }
+  h2 { font-size: var(--fs-xl); }
+  button, .btn { width: 100%; }
+  .btn-row button { width: auto; }
+}
+
+/* --- Utilities --- */
+.muted { color: var(--color-text-muted); }
+.hidden { display: none !important; }
+.row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
+.grow { flex: 1; }
