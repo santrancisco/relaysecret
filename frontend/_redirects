@@ -1,0 +1,5 @@
+# Cloudflare Pages redirects.
+# HTTPS is enforced by Cloudflare at the edge, so no http->https rule needed.
+# Keep /tunnel and /clipboard usable without the trailing slash.
+/tunnel     /tunnel/    301
+/clipboard  /clipboard/ 301

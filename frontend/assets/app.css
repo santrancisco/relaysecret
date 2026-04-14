@@ -1,0 +1,183 @@
+/* Page-specific layout on top of tokens.css. No color/font overrides here —
+   only composition. If you need a new token, add it to tokens.css. */
+
+/* --- Site header ---------------------------------------------------- */
+.site-header {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-4);
+  border-bottom: 1px solid var(--color-border);
+}
+.site-header .wordmark {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  color: var(--color-accent);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.site-header .wordmark a { color: inherit; text-decoration: none; }
+.site-header nav {
+  display: flex;
+  gap: var(--sp-4);
+  margin-left: auto;
+  font-size: var(--fs-sm);
+}
+.site-header nav a {
+  color: var(--color-text-muted);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+}
+.site-header nav a.active {
+  color: var(--color-text-primary);
+  background: var(--color-border);
+}
+.site-header .tagline {
+  width: 100%;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* --- Tabs (send page) ---------------------------------------------- */
+.tabs {
+  display: flex;
+  gap: var(--sp-2);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--sp-6);
+  flex-wrap: wrap;
+}
+.tabs button {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.tabs button.active {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-accent);
+}
+.tabs button:hover { color: var(--color-text-primary); }
+
+/* Full-width rule above doesn't apply to tab buttons on mobile. */
+@media (max-width: 640px) {
+  .tabs button { width: auto; flex: 1; min-width: 0; }
+}
+
+/* --- Form grid: label above control on mobile, two-col on desktop -- */
+.field { display: block; margin-bottom: var(--sp-4); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+@media (max-width: 640px) {
+  .field-row { grid-template-columns: 1fr; }
+}
+
+/* --- Textarea for message mode ------------------------------------- */
+textarea {
+  min-height: 140px;
+  resize: vertical;
+  font-family: var(--font-ui);
+}
+
+/* --- Dropzone "has file" state ------------------------------------- */
+.dropzone.filled {
+  border-style: solid;
+  border-color: var(--color-accent);
+  background: #FFFBF5;
+  color: var(--color-text-primary);
+}
+.dropzone p { margin: 0 0 var(--sp-2); }
+.dropzone .file-info {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--color-text-primary);
+}
+
+/* --- Share URL result block ---------------------------------------- */
+.url-result .code-block { margin-bottom: var(--sp-3); }
+.url-result .code-block .obj { color: #4A9CE8; }
+.url-result .code-block .frag { color: #FF851B; }
+
+/* --- Tunnel file list ---------------------------------------------- */
+table.filelist {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+table.filelist th, table.filelist td {
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+table.filelist th {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+table.filelist td.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+table.filelist td.actions button {
+  padding: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+  margin-left: var(--sp-2);
+  width: auto;
+}
+table.filelist td.name {
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+@media (max-width: 640px) {
+  table.filelist th:nth-child(2),
+  table.filelist td:nth-child(2) { display: none; } /* hide size column */
+  table.filelist td.actions button { margin-left: var(--sp-1); }
+}
+
+/* --- Inline checkbox row ------------------------------------------- */
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--color-text-muted);
+}
+.checkbox-row input[type="checkbox"] { width: auto; }
+.checkbox-row label { margin: 0; }
+
+/* --- FAQ ------------------------------------------------------------ */
+.faq details {
+  border-top: 1px solid var(--color-border);
+  padding: var(--sp-3) 0;
+}
+.faq details:last-child { border-bottom: 1px solid var(--color-border); }
+.faq summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.faq p { margin: var(--sp-3) 0 0; font-size: var(--fs-sm); color: var(--color-text-muted); }
+
+/* --- Decrypted image preview --------------------------------------- */
+img.preview {
+  max-width: 100%;
+  max-height: 480px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: block;
+  margin-top: var(--sp-3);
+}
+
+/* --- Busy overlay (minimal) ---------------------------------------- */
+body.busy { cursor: progress; }
+body.busy button { pointer-events: none; opacity: 0.6; }
