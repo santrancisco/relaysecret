@@ -370,3 +370,56 @@ body.busy button { pointer-events: none; opacity: 0.6; }
 /* Make the preview image a clickable affordance. */
 img.preview { cursor: zoom-in; transition: transform .15s ease; }
 img.preview:hover { transform: translateY(-1px); }
+
+/* --- "Fork me on GitHub" corner ribbon ----------------------------- */
+/* Classic 45-degree ribbon in the top-right corner, ported from the
+   original site. Uses the brand tokens: dark terminal bg with brand
+   red on hover. Hidden on narrow screens so it never crowds the nav. */
+#forkongithub {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 150px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 900;
+}
+#forkongithub a {
+  pointer-events: auto;
+  position: absolute;
+  top: 34px;
+  right: -54px;
+  width: 220px;
+  transform: rotate(45deg);
+  background: var(--color-code-bg);
+  color: #fff;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  line-height: 2rem;
+  padding: 4px 0;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transition: background .2s ease, color .2s ease;
+}
+#forkongithub a::before,
+#forkongithub a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.4);
+}
+#forkongithub a::before { top: 3px; }
+#forkongithub a::after  { bottom: 3px; }
+#forkongithub a:hover {
+  background: var(--color-accent);
+  color: #fff;
+  text-decoration: none;
+}
+@media (max-width: 640px) {
+  #forkongithub { display: none; }
+}
