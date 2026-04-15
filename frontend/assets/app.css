@@ -104,6 +104,23 @@ textarea {
 .url-result .code-block { margin-bottom: var(--sp-3); }
 .url-result .code-block .obj { color: #4A9CE8; }
 .url-result .code-block .frag { color: #FF851B; }
+.url-result .qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.url-result .qr-code {
+  width: 220px;
+  height: 220px;
+  padding: var(--sp-2);
+  background: #fff;
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.url-result .qr-code svg { display: block; width: 100%; height: 100%; }
+.url-result .qr-hint { margin: 0; font-size: var(--fs-sm); }
 
 /* --- Tunnel file list ---------------------------------------------- */
 table.filelist {
@@ -204,7 +221,10 @@ body.busy button { pointer-events: none; opacity: 0.6; }
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-2) 0 var(--sp-2) var(--sp-6);
+  /* left padding = icon width (20px at left:4px => right edge 24px) + gutter.
+     Bumping from var(--sp-6) to (sp-6 + sp-3) gives a 12px gap between the
+     tick circle and the label text. */
+  padding: var(--sp-2) 0 var(--sp-2) calc(var(--sp-6) + var(--sp-3));
   font-size: var(--fs-sm);
   color: var(--color-text-muted);
   min-height: 28px;

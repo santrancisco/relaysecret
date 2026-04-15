@@ -8,3 +8,26 @@
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Permissions-Policy: clipboard-read=(self), clipboard-write=(self), camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Cache-Control: no-cache, must-revalidate
+
+# HTML entry points: never serve a stale shell. ETag/304 still keeps it cheap.
+/
+  Cache-Control: no-cache, must-revalidate
+/index.html
+  Cache-Control: no-cache, must-revalidate
+/tunnel/
+  Cache-Control: no-cache, must-revalidate
+/tunnel/index.html
+  Cache-Control: no-cache, must-revalidate
+/clipboard/
+  Cache-Control: no-cache, must-revalidate
+/clipboard/index.html
+  Cache-Control: no-cache, must-revalidate
+
+# Static assets are not content-hashed yet. Force revalidation on every
+# request so a deploy is picked up immediately. ETag/304 keeps the bytes
+# off the wire when nothing changed.
+/assets/*
+  Cache-Control: no-cache, must-revalidate
+/js/*
+  Cache-Control: no-cache, must-revalidate

@@ -163,10 +163,6 @@ label { display: block; font-size: var(--fs-sm); color: var(--color-text-muted);
 }
 .code-block .highlight { color: var(--color-code-syntax); }
 
-/* --- Status --- */
-.status-ok { color: var(--color-success); }
-.status-err { color: var(--color-danger); }
-.status-warn { color: var(--color-warning); }
 
 /* --- Responsive --- */
 @media (max-width: 640px) {
@@ -180,6 +176,11 @@ label { display: block; font-size: var(--fs-sm); color: var(--color-text-muted);
 
 /* --- Utilities --- */
 .muted { color: var(--color-text-muted); }
+
+/* --- Status --- (must come after .muted so they win when both classes apply) */
+.status-ok   { color: var(--color-success); }
+.status-err  { color: var(--color-danger); font-weight: 600; }
+.status-warn { color: var(--color-warning); }
 .hidden { display: none !important; }
 .row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
 .grow { flex: 1; }

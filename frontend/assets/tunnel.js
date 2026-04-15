@@ -21,6 +21,7 @@ const REGION = 'us'; // Tunnels are pinned to us for now (matches backend defaul
 const state = {
   tunnelId: '',
   file: null,
+  ready: false, // true once we have a valid tunnelid + tempkey
 };
 
 // Read the tunnel temp key FRESH from the URL fragment at every action.
@@ -72,15 +73,29 @@ async function boot() {
     return;
   }
   state.tunnelId = q.tunnelid;
+  state.ready = true;
   $('tunnelInfo').textContent = 'Tunnel id: ' + state.tunnelId + ' · region ' + REGION.toUpperCase();
   await refreshList();
 }
 
+function disableTunnelActions() {
+  state.ready = false;
+  $('btnUpload').disabled = true;
+  $('btnRefresh').disabled = true;
+}
+
 async function createRoom() {
-  let name = '';
-  while (name.length < 8) {
-    name = window.prompt('Enter tunnel name (min 8 characters)') || '';
-    if (name === null) return;
+  const raw = window.prompt('Enter tunnel name (min 8 characters)');
+  if (raw === null) {
+    disableTunnelActions();
+    setStatus($('tunnelInfo'), 'No tunnel selected. Switch to Send or Clipboard, or reload to try again.', 'err');
+    return;
+  }
+  const name = raw.trim();
+  if (name.length < 8) {
+    disableTunnelActions();
+    setStatus($('tunnelInfo'), 'Tunnel name must be at least 8 characters. Reload to try again.', 'err');
+    return;
   }
   const tempKey = await sha256Hex(name);
   const idFull  = await sha256Hex(tempKey);
@@ -156,7 +171,7 @@ function setFile(f) {
   $('dzFileInfo').textContent = f.name + '  (' + formatBytes(f.size) + ')';
   $('filenameInput').value = f.name;
   dz.classList.add('filled');
-  $('btnUpload').disabled = false;
+  $('btnUpload').disabled = !state.ready;
 }
 
 $('btnUpload').onclick = async () => {

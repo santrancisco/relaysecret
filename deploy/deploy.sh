@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
 # deploy/deploy.sh — one-shot RelaySecret deploy to Cloudflare.
-#
-# Usage:
-#   ./deploy/deploy.sh [--yes] [--dry-run] [--teardown]
-#
-# Flags:
-#   --yes       Skip interactive confirmations (required for non-TTY runs).
-#   --dry-run   Print every Cloudflare API call and wrangler invocation,
-#               but never actually hit the network or mutate state.
-#   --teardown  DESTROY everything this script created: Pages project,
-#               Worker, KV namespace, R2 buckets (emptied first), and
-#               DNS records for FRONTEND_HOST/API_HOST. Apex record is
-#               left alone unless --yes is passed twice.
-#
 # See deploy/README.md for prereqs and token permissions.
 
 set -euo pipefail
@@ -30,6 +17,68 @@ TEARDOWN=0
 ONLY=""
 SKIP=""
 
+usage() {
+  cat <<'EOF'
+RelaySecret deploy — provisions / updates the whole Cloudflare stack
+(R2 buckets, KV namespace, Worker, Pages site) from deploy/config.env.
+
+USAGE
+  ./deploy/deploy.sh [flags]
+
+FLAGS
+  --yes              Skip interactive confirmations. Required for non-TTY runs
+                     (CI, pipes). Teardown still asks for it twice.
+  --dry-run          Print every Cloudflare API call and wrangler invocation
+                     without touching the network or mutating state.
+  --teardown         DESTROY everything this script created: Pages project,
+                     Worker, KV namespace, R2 buckets (emptied first), and
+                     DNS records for FRONTEND_HOST / API_HOST. Irreversible.
+  --only=STEPS       Run ONLY the listed steps (comma-separated). Preflight
+                     always runs. Mutually exclusive with --skip.
+  --skip=STEPS       Run everything EXCEPT the listed steps (comma-separated).
+  -h, --help         Show this help and exit.
+
+STEPS (for --only / --skip)
+  r2       Create the three regional R2 buckets, apply lifecycle + CORS.
+  kv       Create the clipboard KV namespace. Exports KV_NAMESPACE_ID for
+           the worker step. If you skip kv, set KV_NAMESPACE_ID in config.env.
+  worker   Render wrangler.toml, deploy the Worker, push secrets, bind the
+           API_HOST custom domain. Requires R2 credentials in config.env.
+  pages    Build the frontend (with placeholder substitution) and deploy
+           the Pages project, attach FRONTEND_HOST + apex domain.
+  smoke    Hit the API and frontend over HTTPS to verify the deploy.
+
+EXAMPLES
+  # First-time deploy, non-interactive
+  ./deploy/deploy.sh --yes
+
+  # Push only the frontend (fastest iteration loop for HTML/CSS/JS changes)
+  ./deploy/deploy.sh --only=pages --yes
+
+  # Re-deploy the worker after editing worker/ source
+  ./deploy/deploy.sh --only=worker --yes
+
+  # Frontend + worker together, skip infra and smoke test
+  ./deploy/deploy.sh --only=worker,pages --yes
+
+  # Everything except the smoke test
+  ./deploy/deploy.sh --skip=smoke --yes
+
+  # See exactly what a full run would do, no side effects
+  ./deploy/deploy.sh --dry-run --yes
+
+  # Burn it all down
+  ./deploy/deploy.sh --teardown --yes
+
+NOTES
+  * Preflight (config + binary checks, token verify, zone lookup) always runs.
+  * --only and --skip cannot be combined; --only wins if both are given.
+  * For tiny one-off changes you can also bypass this script entirely:
+      (cd worker && wrangler deploy)
+      wrangler pages deploy frontend --project-name="$PAGES_PROJECT"
+EOF
+}
+
 for arg in "$@"; do
   case "$arg" in
     --yes)      YES=1 ;;
@@ -38,11 +87,12 @@ for arg in "$@"; do
     --only=*)   ONLY="${arg#--only=}" ;;
     --skip=*)   SKIP="${arg#--skip=}" ;;
     -h|--help)
-      sed -n '1,25p' "$0"
+      usage
       exit 0
       ;;
     *)
       echo "unknown flag: $arg" >&2
+      echo "run '$0 --help' for usage" >&2
       exit 1
       ;;
   esac
@@ -339,6 +389,29 @@ else
   else
     warn "missing ${CONFIG_JS} — skipping JS substitution"
   fi
+
+  # Cache busting: Cloudflare Pages forces a 4h max-age on /assets/* and
+  # ignores Cache-Control overrides for that path. Stamp every asset URL in
+  # every HTML file with a per-deploy version query so phones that already
+  # cached the old file are forced to refetch.
+  BUILD_VERSION="$(date +%s)"
+  python3 - "$BUILD_DIR" "$BUILD_VERSION" <<'PY'
+import os, re, sys
+build_dir, version = sys.argv[1], sys.argv[2]
+pat = re.compile(r'(/assets/[A-Za-z0-9_./-]+\.(?:js|css|svg))')
+for root, _, files in os.walk(build_dir):
+    for name in files:
+        if not name.endswith('.html'):
+            continue
+        p = os.path.join(root, name)
+        with open(p, 'r', encoding='utf-8') as f:
+            src = f.read()
+        out = pat.sub(lambda m: m.group(1) + '?v=' + version, src)
+        if out != src:
+            with open(p, 'w', encoding='utf-8') as f:
+                f.write(out)
+PY
+  info "stamped asset URLs with v=${BUILD_VERSION}"
 
   # Sanity check: the placeholder must not remain anywhere in the build.
   if grep -RIn '<WORKER_ORIGIN_PLACEHOLDER>' "$BUILD_DIR" >/dev/null 2>&1; then

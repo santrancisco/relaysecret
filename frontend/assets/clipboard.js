@@ -14,14 +14,26 @@ import {
 
 const state = { clipId: '', tempKey: '' };
 
+function disableClipboardActions() {
+  $('btnGet').disabled = true;
+  $('btnUpdate').disabled = true;
+}
+
 async function boot() {
   const q = getQueryParams();
   state.tempKey = getFragment();
   if (!q.clipboardid || !state.tempKey) {
-    let name = '';
-    while (name.length < 8) {
-      name = window.prompt('Enter clipboard id (min 8 characters)') || '';
-      if (name === null) return;
+    const raw = window.prompt('Enter clipboard id (min 8 characters)');
+    if (raw === null) {
+      disableClipboardActions();
+      setStatus($('clipInfo'), 'No clipboard selected. Switch to Send or Tunnel, or reload to try again.', 'err');
+      return;
+    }
+    const name = raw.trim();
+    if (name.length < 8) {
+      disableClipboardActions();
+      setStatus($('clipInfo'), 'Clipboard id must be at least 8 characters. Reload to try again.', 'err');
+      return;
     }
     const tempKey = await sha256Hex(name);
     const full    = await sha256Hex(tempKey);

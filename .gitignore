@@ -1,3 +1,4 @@
+config.env
 .terraform
 *.tfvars
 .*

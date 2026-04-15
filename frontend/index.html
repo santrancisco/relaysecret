@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/assets/app.css">
   <script src="/assets/config.js"></script>
+  <script src="/assets/qrcode.js"></script>
 </head>
 <body>
   <span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret" target="_blank" rel="noopener">Fork me on GitHub</a></span>
@@ -38,16 +39,13 @@
       <!-- ---------- Encrypt: file ---------- -->
       <section id="paneFile" class="stack hidden">
         <h2>Encrypt a file</h2>
-        <p class="muted">Up to 2 GB on desktop. The filename is stored in metadata (not encrypted) — change it below if it's sensitive.</p>
+        <p class="muted">Up to 2 GB on desktop. The filename is taken from the file you upload and stored in metadata (not encrypted).</p>
         <div class="dropzone" id="dropzone">
           <p>Drag &amp; drop a file here, or <a href="#" id="dzPick"><b>click to select</b></a>.</p>
           <p class="file-info" id="dzFileInfo"></p>
         </div>
         <input type="file" id="fileInput" class="hidden" autocomplete="off">
-        <div class="field">
-          <label for="filenameInput">Filename (stored as metadata)</label>
-          <input id="filenameInput" type="text" autocomplete="off">
-        </div>
+        <input id="filenameInput" type="hidden" autocomplete="off">
       </section>
 
       <!-- ---------- Shared encrypt options ---------- -->
@@ -93,6 +91,10 @@
         <h2>Share this URL</h2>
         <p class="muted">Only share with people you trust. The fragment after <code>#</code> is the key — it never leaves your browser.</p>
         <div class="code-block" id="shareUrlBlock"></div>
+        <div class="qr-wrap">
+          <div id="shareQr" class="qr-code" aria-label="QR code for share URL"></div>
+          <p class="muted qr-hint">Scan with a phone camera to open on mobile.</p>
+        </div>
         <div class="row">
           <button id="btnCopyUrl" class="primary" type="button">Copy URL</button>
           <button id="btnNewSend" type="button">Send another</button>

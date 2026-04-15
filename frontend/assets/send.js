@@ -100,7 +100,6 @@ dz.addEventListener('drop', (e) => {
 function setFile(f) {
   state.file = f;
   $('dzFileInfo').textContent = f.name + '  (' + formatBytes(f.size) + ')';
-  $('filenameInput').value = f.name;
   dz.classList.add('filled');
   updateEncryptButton();
 }
@@ -123,7 +122,7 @@ $('btnEncrypt').onclick = async () => {
     } else {
       if (!state.file) return;
       plaintext = await readFileBytes(state.file);
-      filename = safeFilename($('filenameInput').value || state.file.name) || 'file.bin';
+      filename = safeFilename(state.file.name) || 'file.bin';
     }
     if (plaintext.length === 0) throw new Error('Nothing to encrypt.');
     flow.done(0);
@@ -193,6 +192,7 @@ function showShareUrl(region, key, tempKey) {
     '&region=' + region + '#',
     mkSpan(tempKey, 'frag'),
   );
+  renderQrCode(url);
   $('paneResult').classList.remove('hidden');
   $('btnCopyUrl').onclick = async () => {
     const ok = await copyToClipboard(url);
@@ -207,6 +207,59 @@ function showShareUrl(region, key, tempKey) {
     setStatus($('encStatus'), '');
   };
 }
+function renderQrCode(url) {
+  const host = $('shareQr');
+  if (!host) return;
+  host.textContent = '';
+  if (typeof window.qrcode !== 'function') return;
+  // Try increasing type numbers until the data fits. Type 0 = auto-detect
+  // is not supported by this lib, so iterate manually. Error correction
+  // level 'L' keeps capacity high enough for long share URLs.
+  let qr = null;
+  for (let type = 4; type <= 40; type++) {
+    try {
+      const candidate = window.qrcode(type, 'L');
+      candidate.addData(url);
+      candidate.make();
+      qr = candidate;
+      break;
+    } catch (_) { /* too small, try next */ }
+  }
+  if (!qr) return;
+  // Build the SVG as DOM nodes (not innerHTML) — the page's CSP enforces
+  // Trusted Types for script sinks, which blocks innerHTML assignments.
+  const SVG = 'http://www.w3.org/2000/svg';
+  const count = qr.getModuleCount();
+  const cell = 1;
+  const margin = 2;
+  const size = count * cell + margin * 2;
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('xmlns', SVG);
+  svg.setAttribute('viewBox', '0 0 ' + size + ' ' + size);
+  svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+  svg.setAttribute('shape-rendering', 'crispEdges');
+  const bg = document.createElementNS(SVG, 'rect');
+  bg.setAttribute('width', '100%');
+  bg.setAttribute('height', '100%');
+  bg.setAttribute('fill', 'white');
+  svg.append(bg);
+  let d = '';
+  for (let r = 0; r < count; r++) {
+    for (let c = 0; c < count; c++) {
+      if (qr.isDark(r, c)) {
+        const x = c * cell + margin;
+        const y = r * cell + margin;
+        d += 'M' + x + ',' + y + 'h' + cell + 'v' + cell + 'h-' + cell + 'z';
+      }
+    }
+  }
+  const path = document.createElementNS(SVG, 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill', 'black');
+  svg.append(path);
+  host.append(svg);
+}
+
 function mkSpan(text, cls) {
   const s = document.createElement('span');
   s.className = cls;
