@@ -91,6 +91,18 @@ export function readFileBytes(file) {
   });
 }
 
+// Yield successive Uint8Array slices from a File without loading it all at once.
+// Uses File.slice() so the browser only holds one chunk in memory at a time.
+export async function* fileChunkIterator(file, chunkSize) {
+  let offset = 0;
+  while (offset < file.size) {
+    const end = Math.min(offset + chunkSize, file.size);
+    const slice = file.slice(offset, end);
+    yield new Uint8Array(await slice.arrayBuffer());
+    offset = end;
+  }
+}
+
 // ------------------------------------------------------------------
 // Progress flow — renders a step-by-step list showing how the app
 // is protecting the user's data at each phase. No framework: pure

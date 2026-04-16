@@ -121,7 +121,8 @@ function buildCanonicalQueryString(params) {
     pairs.push([rfc3986(k), rfc3986(v)]);
   }
   pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-  return pairs.map(([k, v]) => `${k}=${v}`).join('&');
+  // Bare params (empty value, e.g. S3 "uploads") render as just the key.
+  return pairs.map(([k, v]) => (v === '' ? k : `${k}=${v}`)).join('&');
 }
 
 // amzDate + dateStamp, e.g. ("20240214T101530Z", "20240214")
@@ -163,6 +164,9 @@ async function deriveSigningKey(secret, dateStamp, region, service) {
  *   signedHeaders   object of header name -> value. Host is added automatically.
  *                   For PUTs, include content-type + x-amz-meta-* headers
  *                   the client is going to send.
+ *   queryExtras     extra query-string params to include in the signature
+ *                   (e.g. { uploads: '', uploadId: '...', partNumber: '1' }).
+ *                   Values are stringified; empty-string values become bare keys.
  *
  * Returns { url, signedHeaders } — signedHeaders is the canonicalised
  * lowercase-keyed map the caller must echo on the wire.
@@ -178,6 +182,7 @@ export async function presignR2(opts) {
     region = 'auto',
     expiresIn = 900,
     signedHeaders = {},
+    queryExtras = {},
   } = opts;
 
   const service = 's3';
@@ -208,6 +213,9 @@ export async function presignR2(opts) {
     'X-Amz-Expires': String(expiresIn),
     'X-Amz-SignedHeaders': signedHeadersList,
   };
+  for (const [k, v] of Object.entries(queryExtras)) {
+    params[k] = String(v);
+  }
   const canonicalQueryString = buildCanonicalQueryString(params);
 
   // ---- canonical URI ----------------------------------------------------
@@ -254,6 +262,70 @@ export async function presignR2(opts) {
   delete echoed.host;
 
   return { url, signedHeaders: echoed };
+}
+
+/**
+ * signS3Request — build SigV4 Authorization header for a direct S3 call.
+ *
+ * Used server-side when the Worker must call S3 APIs (e.g. CreateMultipartUpload,
+ * CompleteMultipartUpload) that cannot be presigned as simple GET/PUT URLs.
+ *
+ * Returns { amzDate, authorization } — caller adds these to fetch() headers.
+ */
+export async function signS3Request(opts) {
+  const {
+    method,
+    accountId,
+    accessKeyId,
+    secretAccessKey,
+    bucket,
+    key,
+    region = 'auto',
+    headers = {},
+    queryParams = {},
+  } = opts;
+
+  const service = 's3';
+  const host = `${accountId}.r2.cloudflarestorage.com`;
+  const now = new Date();
+  const { amzDate, dateStamp } = formatAmzDate(now);
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+
+  const headerMap = { host, 'x-amz-date': amzDate, ...headers };
+  const sortedHeaderNames = Object.keys(headerMap).sort();
+  const canonicalHeaders =
+    sortedHeaderNames.map((n) => `${n}:${headerMap[n]}`).join('\n') + '\n';
+  const signedHeadersList = sortedHeaderNames.join(';');
+
+  const canonicalUri = encodePath(`/${bucket}/${key}`);
+  // Query params (e.g. { uploads: '' } for CreateMultipartUpload).
+  const canonicalQueryString = buildCanonicalQueryString(queryParams);
+  const canonicalRequest = [
+    method.toUpperCase(),
+    canonicalUri,
+    canonicalQueryString,
+    canonicalHeaders,
+    signedHeadersList,
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+
+  const hashedCanonicalRequest = await sha256Hex(canonicalRequest);
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    hashedCanonicalRequest,
+  ].join('\n');
+
+  const signingKey = await deriveSigningKey(secretAccessKey, dateStamp, region, service);
+  const signatureBytes = await hmac(signingKey, stringToSign);
+  const signature = toHex(signatureBytes);
+
+  const authorization =
+    `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope},` +
+    `SignedHeaders=${signedHeadersList},Signature=${signature}`;
+
+  return { amzDate, authorization };
 }
 
 /* ----------------------------------------------------------------------- *

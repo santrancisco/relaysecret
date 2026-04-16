@@ -41,6 +41,11 @@ async function getJSON(path, params) {
   return parse(res);
 }
 
+async function postJSON(path, params) {
+  const res = await fetch(base() + path + qs(params || {}), { method: 'POST' });
+  return parse(res);
+}
+
 // --- R2 presign: single-recipient send ---------------------------------
 export function getUploadPresign({ region, expire, filename, deleteOnDownload }) {
   return getJSON('/presign/put', {
@@ -60,6 +65,16 @@ export function getTunnelUploadPresign({ region, tunnel, filename, deleteOnDownl
 // --- R2 presign: download ---------------------------------------------
 export function getDownloadPresign({ region, key }) {
   return getJSON('/presign/get', { region, key });
+}
+
+// --- R2 presign: multipart upload (large files) -----------------------
+export function getMultipartPresign({ region, expire, filename, chunks, deleteOnDownload, tunnel }) {
+  const params = {
+    region, expire, filename, chunks,
+    deleteOnDownload: deleteOnDownload ? 'true' : 'false',
+  };
+  if (tunnel) params.tunnel = tunnel;
+  return postJSON('/presign/multipart-init', params);
 }
 
 // --- Tunnel file listing ----------------------------------------------
