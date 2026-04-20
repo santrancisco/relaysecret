@@ -165,12 +165,12 @@ set -a; source "$CONFIG_FILE"; set +a
 : "${R2_BUCKET_US:=relaysecret-us}"
 : "${R2_BUCKET_EU:=relaysecret-eu}"
 : "${R2_BUCKET_APAC:=relaysecret-apac}"
-: "${CF_ZONE_ID:=}"
+: "${CLOUDFLARE_ZONE_ID:=}"
 
 # ---------- validate ----------
 banner "Preflight"
 
-for v in CF_API_TOKEN CF_ACCOUNT_ID DOMAIN FRONTEND_HOST API_HOST; do
+for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DOMAIN FRONTEND_HOST API_HOST; do
   if [[ -z "${!v:-}" ]]; then
     die "config.env is missing required variable: ${v}"
   fi
@@ -189,31 +189,60 @@ if [[ -z "${SEED}" ]]; then
 fi
 
 # verify token
-info "verifying CF_API_TOKEN..."
+info "verifying CLOUDFLARE_API_TOKEN..."
+info "  token length : ${#CLOUDFLARE_API_TOKEN}"
+info "  token prefix : ${CLOUDFLARE_API_TOKEN:0:6}... (first 6 chars)"
 if [[ "$DRY_RUN" -eq 1 ]]; then
   info "[dry-run] skipping token verify"
 else
-  verify_resp="$(cf_api GET /user/tokens/verify)"
-  status="$(echo "$verify_resp" | jq -r '.status // empty')"
+  info "  calling GET ${CF_API_BASE:-https://api.cloudflare.com/client/v4}/user/tokens/verify"
+  raw_verify_resp=""
+  verify_http_code=""
+  {
+    tmp_verify="$(mktemp)"
+    verify_http_code="$(curl -sS -o "$tmp_verify" -w '%{http_code}' \
+      -X GET \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+      "https://api.cloudflare.com/client/v4/user/tokens/verify")"
+    raw_verify_resp="$(cat "$tmp_verify")"
+    rm -f "$tmp_verify"
+  }
+  info "  HTTP status  : ${verify_http_code}"
+  info "  raw response : ${raw_verify_resp}"
+  # Attempt to parse; fall back gracefully if non-JSON
+  if ! echo "$raw_verify_resp" | jq -e . >/dev/null 2>&1; then
+    die "CLOUDFLARE_API_TOKEN verify failed: non-JSON response (HTTP ${verify_http_code}): ${raw_verify_resp}"
+  fi
+  verify_success="$(echo "$raw_verify_resp" | jq -r '.success // false')"
+  verify_errors="$(echo "$raw_verify_resp" | jq -c '.errors // []')"
+  verify_result="$(echo "$raw_verify_resp" | jq -c '.result // {}')"
+  info "  success      : ${verify_success}"
+  info "  errors       : ${verify_errors}"
+  info "  result       : ${verify_result}"
+  if [[ "$verify_success" != "true" ]]; then
+    die "CLOUDFLARE_API_TOKEN verify failed (HTTP ${verify_http_code}): errors=${verify_errors}"
+  fi
+  status="$(echo "$raw_verify_resp" | jq -r '.result.status // empty')"
+  info "  token status : ${status}"
   if [[ "$status" != "active" ]]; then
-    die "CF_API_TOKEN verify failed: $(echo "$verify_resp" | jq -c .)"
+    die "CLOUDFLARE_API_TOKEN is not active (status='${status}'). Check the token in the Cloudflare dashboard: https://dash.cloudflare.com/profile/api-tokens"
   fi
   info "token is active"
 fi
 
 # resolve zone id
-if [[ -z "$CF_ZONE_ID" ]]; then
+if [[ -z "$CLOUDFLARE_ZONE_ID" ]]; then
   info "looking up zone id for ${DOMAIN}..."
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    CF_ZONE_ID="00000000000000000000000000000000"
+    CLOUDFLARE_ZONE_ID="00000000000000000000000000000000"
     info "[dry-run] using stub zone id"
   else
-    CF_ZONE_ID="$(dns_lookup_zone_id "$DOMAIN")"
+    CLOUDFLARE_ZONE_ID="$(dns_lookup_zone_id "$DOMAIN")"
   fi
 fi
-info "zone id: ${CF_ZONE_ID}"
+info "zone id: ${CLOUDFLARE_ZONE_ID}"
 
-export CF_API_TOKEN CF_ACCOUNT_ID CF_ZONE_ID DOMAIN FRONTEND_HOST API_HOST \
+export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_ZONE_ID DOMAIN FRONTEND_HOST API_HOST \
        VT_API_KEY HMAC_SECRET SEED PAGES_PROJECT WORKER_NAME \
        R2_BUCKET_US R2_BUCKET_EU R2_BUCKET_APAC
 
@@ -229,8 +258,9 @@ if [[ "$TEARDOWN" -eq 1 ]]; then
   confirm "Really really proceed? This is irreversible." || die "aborted"
 
   banner "[teardown] DNS"
-  dns_delete_record "$CF_ZONE_ID" "$FRONTEND_HOST" CNAME || true
-  dns_delete_record "$CF_ZONE_ID" "$API_HOST"      CNAME || true
+  dns_delete_record "$CLOUDFLARE_ZONE_ID" "$FRONTEND_HOST" CNAME || true
+  dns_delete_record "$CLOUDFLARE_ZONE_ID" "$DOMAIN"        CNAME || true
+  dns_delete_record "$CLOUDFLARE_ZONE_ID" "$API_HOST"      AAAA  || true
 
   banner "[teardown] Pages"
   pages_detach_domain "$PAGES_PROJECT" "$FRONTEND_HOST" || true
@@ -260,7 +290,15 @@ if [[ "$DRY_RUN" -ne 1 ]]; then
 fi
 
 # FRONTEND_ORIGIN is needed by multiple steps (R2 CORS and worker secrets).
-FRONTEND_ORIGIN="https://${FRONTEND_HOST}"
+# Include the apex domain alongside FRONTEND_HOST so both are accepted by the
+# worker's referer gate (comma-separated list, first entry is the canonical one).
+if [[ "${FRONTEND_HOST}" == www.* ]]; then
+  _apex_origin="https://${FRONTEND_HOST#www.}"
+  FRONTEND_ORIGIN="https://${FRONTEND_HOST},${_apex_origin}"
+else
+  FRONTEND_ORIGIN="https://${FRONTEND_HOST}"
+fi
+unset _apex_origin
 
 # ---------- R2 ----------
 if step_enabled r2; then
@@ -333,14 +371,14 @@ EOF
   banner "Worker: secrets"
   worker_put_secret "$WORKER_DIR" R2_ACCESS_KEY_ID     "$R2_ACCESS_KEY_ID"
   worker_put_secret "$WORKER_DIR" R2_SECRET_ACCESS_KEY "$R2_SECRET_ACCESS_KEY"
-  worker_put_secret "$WORKER_DIR" R2_ACCOUNT_ID        "$CF_ACCOUNT_ID"
+  worker_put_secret "$WORKER_DIR" R2_ACCOUNT_ID        "$CLOUDFLARE_ACCOUNT_ID"
   worker_put_secret "$WORKER_DIR" VT_API_KEY           "$VT_API_KEY"
   worker_put_secret "$WORKER_DIR" HMAC_SECRET          "$HMAC_SECRET"
   worker_put_secret "$WORKER_DIR" FRONTEND_ORIGIN      "$FRONTEND_ORIGIN"
   worker_put_secret "$WORKER_DIR" SEED                 "$SEED"
 
   banner "Worker: custom domain ${API_HOST}"
-  worker_bind_domain "$API_HOST" "$WORKER_NAME" "$CF_ZONE_ID"
+  worker_bind_domain "$API_HOST" "$WORKER_NAME" "$CLOUDFLARE_ZONE_ID"
 else
   info "skipping Worker step (per --only/--skip)"
 fi
@@ -426,17 +464,21 @@ pages_create_project "$PAGES_PROJECT" main
 banner "Pages: deploy ${BUILD_DIR}"
 pages_deploy "$PAGES_PROJECT" "$BUILD_DIR"
 
+banner "Pages: DNS records"
+# Pages cannot activate a custom domain without a DNS record already in place.
+# We upsert proxied CNAMEs pointing at the Pages project's default subdomain
+# before attaching the domain, so verification succeeds on first run.
+dns_upsert_record "$CLOUDFLARE_ZONE_ID" "$FRONTEND_HOST" CNAME "${PAGES_PROJECT}.pages.dev" true
+dns_upsert_record "$CLOUDFLARE_ZONE_ID" "$DOMAIN"        CNAME "${PAGES_PROJECT}.pages.dev" true
+
 banner "Pages: custom domains"
 pages_attach_domain "$PAGES_PROJECT" "$FRONTEND_HOST"
 pages_attach_domain "$PAGES_PROJECT" "$DOMAIN"
 
-# ---------- DNS ----------
-# Cloudflare Pages (pages_attach_domain) and Workers (worker_bind_domain)
-# both create and manage their own proxied DNS records for the attached
-# hostnames. Trying to upsert our own CNAME here returns code 81062
-# ("A DNS record managed by Workers already exists on that host."). So
-# we just trust the platform.
-info "DNS records managed by Pages/Workers custom-domain attachments — skipping manual upsert"
+# Trigger re-verification in case the domains were previously stuck as pending.
+info "triggering domain re-verification..."
+pages_reverify_domain "$PAGES_PROJECT" "$FRONTEND_HOST"
+pages_reverify_domain "$PAGES_PROJECT" "$DOMAIN"
 
 fi  # <-- end of `if step_enabled pages`
 

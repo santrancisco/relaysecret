@@ -114,5 +114,5 @@ Secrets (via `wrangler secret put`):
 - `R2_ACCOUNT_ID` — Cloudflare account id (used to build the R2 S3 endpoint URL)
 - `VT_API_KEY` — VirusTotal API key (or `"none"` to disable)
 - `HMAC_SECRET` — optional time-bound HMAC gate (`"none"` to disable)
-- `FRONTEND_ORIGIN` — e.g. `https://www.relaysecret.com` (or `"devmode"`)
+- `FRONTEND_ORIGIN` — e.g. `https://www.relaysecret.com`, or a comma-separated list `https://www.relaysecret.com,https://relaysecret.com` to allow multiple origins (or `"devmode"` to disable the gate)
 - `SEED` — random string used to salt object-key generation

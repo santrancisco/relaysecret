@@ -53,7 +53,9 @@ id      = "__KV_NAMESPACE_ID__"
 #   R2_SECRET_ACCESS_KEY    R2 S3-compatible secret
 #   VT_API_KEY              VirusTotal API key ("none" to disable)
 #   HMAC_SECRET             optional upload-gate HMAC secret ("none" to disable)
-#   FRONTEND_ORIGIN         e.g. "https://www.relaysecret.com" ("devmode" disables gate)
+#   FRONTEND_ORIGIN         e.g. "https://www.relaysecret.com" or comma-separated list
+#                           "https://www.relaysecret.com,https://relaysecret.com"
+#                           ("devmode" disables the gate entirely)
 #   SEED                    random seed for object-key generation
 # ---------------------------------------------------------------------------
 
