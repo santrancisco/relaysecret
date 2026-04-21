@@ -163,7 +163,7 @@ $('btnEncrypt').onclick = async () => {
         }
 
         const putRes = await fetch(mp.partUrls[i].url, {
-          method: 'PUT', headers: mp.requiredHeaders, body,
+          method: 'PUT', body,
         });
         if (!putRes.ok) throw new Error('Part ' + mp.partUrls[i].partNumber + ' failed: HTTP ' + putRes.status);
         partETags.push({ partNumber: mp.partUrls[i].partNumber, etag: putRes.headers.get('ETag') || '' });

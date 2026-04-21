@@ -121,8 +121,8 @@ function buildCanonicalQueryString(params) {
     pairs.push([rfc3986(k), rfc3986(v)]);
   }
   pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-  // Bare params (empty value, e.g. S3 "uploads") render as just the key.
-  return pairs.map(([k, v]) => (v === '' ? k : `${k}=${v}`)).join('&');
+  // SigV4 spec: empty-value params still require the "=" sign (e.g. "uploads=").
+  return pairs.map(([k, v]) => `${k}=${v}`).join('&');
 }
 
 // amzDate + dateStamp, e.g. ("20240214T101530Z", "20240214")
@@ -291,7 +291,7 @@ export async function signS3Request(opts) {
   const { amzDate, dateStamp } = formatAmzDate(now);
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
 
-  const headerMap = { host, 'x-amz-date': amzDate, ...headers };
+  const headerMap = { host, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD', 'x-amz-date': amzDate, ...headers };
   const sortedHeaderNames = Object.keys(headerMap).sort();
   const canonicalHeaders =
     sortedHeaderNames.map((n) => `${n}:${headerMap[n]}`).join('\n') + '\n';

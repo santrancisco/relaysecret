@@ -34,11 +34,12 @@ async function createMultipartUpload(env, region, key, metaHeaders) {
 
   const host = `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   const res = await fetch(
-    `https://${host}/${region.bucketName}/${key}?uploads`,
+    `https://${host}/${region.bucketName}/${key}?uploads=`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/octet-stream',
+        'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
         'x-amz-date': amzDate,
         Authorization: authorization,
         ...metaHeaders,
