@@ -46,7 +46,7 @@
       <!-- ── Encrypt: file ─────────────────────────────────── -->
       <section id="paneFile" role="tabpanel" aria-labelledby="tabFile" class="stack hidden">
         <h2>Encrypt a file</h2>
-        <p class="muted">Up to 2 GB on desktop. The filename is stored unencrypted in metadata — if that's a concern, rename before uploading.</p>
+        <p class="muted">No fixed size limit — large files are streamed in encrypted chunks. The filename is stored unencrypted in metadata; rename before uploading if that matters.</p>
         <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop zone — drag a file here or click to select">
           <div id="dzIdleContent">
             <p>Drag &amp; drop a file here, or <a href="#" id="dzPick"><strong>click to browse</strong></a>.</p>
@@ -151,12 +151,12 @@
         <p>No. Everything is encrypted in your browser with AES-GCM-256 before upload. The key is derived from a random value in the URL fragment (<code>#…</code>), which browsers never send to servers.</p>
       </details>
       <details>
-        <summary>What changed vs the old AWS version?</summary>
-        <p>Crypto upgraded from AES-CBC + PBKDF2 10k iterations to AES-GCM-256 (authenticated encryption) + PBKDF2-SHA256 600k iterations. 16-byte salt, 12-byte random IV per message. The blob format is tagged "RSv2" so it can evolve without breaking old links.</p>
+        <summary>Is the encryption quantum-safe?</summary>
+        <p>The symmetric layer — AES-GCM-256 with a PBKDF2-SHA256-derived key — is considered post-quantum safe. A quantum computer running Grover's algorithm halves the effective key length, so AES-256 retains 128 bits of post-quantum security, which remains far beyond any foreseeable attack. The key exchange uses a random secret embedded in the URL fragment rather than an asymmetric handshake, so there is no Shor-vulnerable RSA or elliptic-curve step to worry about.</p>
       </details>
       <details>
         <summary>How big can a file be?</summary>
-        <p>Up to 2 GB on desktop. WebCrypto needs the full file in memory, so very large files depend on how much RAM your browser will grant. For huge transfers, use the Tunnel feature instead.</p>
+        <p>There is no fixed size limit. Files up to 500 MB are encrypted in one pass; files above that are split into 128 MB chunks, each independently encrypted, and streamed directly to R2 via multipart upload — so your browser never holds the whole file in memory. Decryption is also streamed chunk-by-chunk straight to disk. In practice the ceiling is set by Cloudflare R2's multipart limit (~1.25 TB at 128 MB per part).</p>
       </details>
       <details>
         <summary>Can I trust you?</summary>
