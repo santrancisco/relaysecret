@@ -7,13 +7,14 @@
 //
 // If the URL has no tunnelid we prompt for a room name and redirect.
 
-import { encryptBlob, decryptBlob, sha256Hex, createChunkedEncryptContext, decryptChunked, detectFormat } from './crypto.js';
+import { encryptBlob, decryptBlob, sha256Hex, createChunkedEncryptContext, decryptChunked, detectFormat, RSv2_HEADER_LEN } from './crypto.js';
 import {
   getTunnelUploadPresign, getDownloadPresign, getMultipartPresign, listTunnel, deleteObject,
 } from './api.js';
 import {
   $, formatBytes, setStatus, getQueryParams, getFragment,
-  safeFilename, readFileBytes, createProgressFlow, showImageModal,
+  safeFilename, readFileBytes, createProgressFlow, createUploadProgressBar,
+  streamDecryptedDownload, showImageModal,
 } from './ui.js';
 
 const REGION = 'us'; // Tunnels are pinned to us for now (matches backend default).
@@ -183,6 +184,7 @@ $('btnUpload').onclick = async () => {
   flow.show();
   flow.reset();
   let currentStep = 0;
+  let uploadBar = null;
   try {
     document.body.classList.add('busy');
     setStatus($('uploadStatus'), 'Starting…');
@@ -212,33 +214,60 @@ $('btnUpload').onclick = async () => {
 
       currentStep = 2;
       flow.start(2);
+
+      // --- Encrypt all parts sequentially (crypto context is stateful / ordered) ---
+      // Part 1 carries the RSv2 header — reduce its plaintext by RSv2_HEADER_LEN
+      // bytes so all non-trailing parts have equal wire size (R2 requirement).
+      setStatus($('uploadStatus'), 'Encrypting…');
+      const bodies = [];
       let chunkOffset = 0;
-      let encrypted = 0;
-      const partETags = [];
       for (let i = 0; i < mp.partUrls.length; i++) {
-        const end = Math.min(chunkOffset + CHUNK_SIZE, file.size);
+        const effectiveChunkSize = (i === 0) ? CHUNK_SIZE - RSv2_HEADER_LEN : CHUNK_SIZE;
+        const end = Math.min(chunkOffset + effectiveChunkSize, file.size);
         const plainChunk = new Uint8Array(await file.slice(chunkOffset, end).arrayBuffer());
         const record = await ctx.encryptChunk(plainChunk, i);
-
         let body = record;
         if (i === 0) {
           body = new Uint8Array(ctx.header.length + record.length);
           body.set(ctx.header, 0);
           body.set(record, ctx.header.length);
         }
-
-        const putRes = await fetch(mp.partUrls[i].url, {
-          method: 'PUT', body,
-        });
-        if (!putRes.ok) throw new Error('Part ' + mp.partUrls[i].partNumber + ' failed: HTTP ' + putRes.status);
-        partETags.push({ partNumber: mp.partUrls[i].partNumber, etag: putRes.headers.get('ETag') || '' });
-
-        encrypted += plainChunk.length;
+        bodies.push({ index: i, partNumber: mp.partUrls[i].partNumber, url: mp.partUrls[i].url, body, plainSize: plainChunk.length });
         chunkOffset = end;
-        setStatus($('uploadStatus'),
-          'Part ' + mp.partUrls[i].partNumber + '/' + mp.partUrls.length +
-          ' (' + formatBytes(encrypted) + ' / ' + formatBytes(file.size) + ')');
       }
+
+      // --- Upload parts with bounded concurrency (max 3 in-flight) ---
+      const CONCURRENCY = 3;
+      uploadBar = createUploadProgressBar($('uploadBar'), file.size);
+      uploadBar.show();
+      const bar = uploadBar;
+      setStatus($('uploadStatus'), 'Uploading…');
+
+      const partETags = new Array(bodies.length);
+      let uploadedBytes = 0;
+      let partsComplete = 0;
+
+      async function uploadPart(part) {
+        const putRes = await fetch(part.url, { method: 'PUT', body: part.body });
+        if (!putRes.ok) throw new Error('Part ' + part.partNumber + ' failed: HTTP ' + putRes.status);
+        partETags[part.index] = { partNumber: part.partNumber, etag: putRes.headers.get('ETag') || '' };
+        uploadedBytes += part.plainSize;
+        partsComplete++;
+        bar.update(uploadedBytes, partsComplete, bodies.length);
+      }
+
+      const inFlight = new Set();
+      for (let i = 0; i < bodies.length; i++) {
+        const p = uploadPart(bodies[i]);
+        inFlight.add(p);
+        p.finally(() => inFlight.delete(p));
+        if (inFlight.size >= CONCURRENCY) {
+          await Promise.race(inFlight);
+        }
+      }
+      await Promise.all(inFlight);
+
+      bar.done();
       const partsXml = partETags
         .map(p => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${p.etag}</ETag></Part>`)
         .join('');
@@ -294,6 +323,7 @@ $('btnUpload').onclick = async () => {
   } catch (err) {
     console.error(err);
     flow.error(currentStep);
+    if (uploadBar) uploadBar.error();
     setStatus($('uploadStatus'), err.message || 'Upload failed.', 'err');
   } finally {
     document.body.classList.remove('busy');
@@ -314,6 +344,7 @@ async function decryptOne(f) {
   flow.show();
   flow.reset();
   let currentStep = 0;
+  let downloadBar = null;
 
   try {
     document.body.classList.add('busy');
@@ -337,9 +368,21 @@ async function decryptOne(f) {
     const headerBytes = new Uint8Array(await headRes.arrayBuffer());
     const format = detectFormat(headerBytes);
 
-    let plain;
+    const name = safeFilename(meta.objname || f.objname) || 'file.bin';
+    let plain = null;
+
     if (format === 'v2') {
-      setStatus(status, 'Downloading & decrypting chunks…');
+      // ---- RSv2 chunked decrypt — stream directly to disk ----
+      setStatus(status, 'Downloading & decrypting…');
+
+      const dv = new DataView(headerBytes.buffer);
+      const chunkSize = dv.getUint32(8, true);
+      const totalSize = dv.getUint32(16, true) * 0x100000000 + dv.getUint32(12, true);
+      const totalChunks = chunkSize > 0 ? Math.ceil(totalSize / chunkSize) : 1;
+
+      downloadBar = createUploadProgressBar($('downloadBar'), totalSize, { partLabel: 'Chunk' });
+      downloadBar.show();
+
       const fetchRange = async (start, end) => {
         const r = await fetch(meta.url, {
           headers: { Range: `bytes=${start}-${end - 1}` },
@@ -347,23 +390,33 @@ async function decryptOne(f) {
         if (!r.ok) throw new Error('Range fetch failed: HTTP ' + r.status);
         return new Uint8Array(await r.arrayBuffer());
       };
-      const chunks = [];
+
       let totalDecrypted = 0;
-      for await (const ptChunk of decryptChunked(headerBytes, pass, tempKey, fetchRange,
-        (done, total) => {
-          setStatus(status, 'Decrypting… ' + formatBytes(done) + ' / ' + formatBytes(total));
-        }
-      )) {
-        chunks.push(ptChunk);
-        totalDecrypted += ptChunk.length;
-      }
-      plain = new Uint8Array(totalDecrypted);
-      let off = 0;
-      for (const c of chunks) { plain.set(c, off); off += c.length; }
+      let chunksDone = 0;
+      const chunkGen = decryptChunked(headerBytes, pass, tempKey, fetchRange);
+      const { blobUrl, usedPicker } = await streamDecryptedDownload(
+        name,
+        chunkGen,
+        (chunk) => {
+          totalDecrypted += chunk.length;
+          chunksDone++;
+          downloadBar.update(totalDecrypted, chunksDone, totalChunks);
+        },
+      );
+      downloadBar.done();
       flow.done(1);
       currentStep = 2; flow.start(2); flow.done(2);
       currentStep = 3; flow.start(3); flow.done(3);
+
+      if (usedPicker) {
+        setStatus(status, 'Decrypted and saved: ' + name, 'ok');
+      } else {
+        a.href = blobUrl; a.download = name; a.classList.remove('hidden');
+        a.click(); // auto-trigger save dialog
+        setStatus(status, 'Decrypted: ' + name, 'ok');
+      }
     } else {
+      // ---- RSv1 single-shot decrypt (small files only) ----
       setStatus(status, 'Downloading ciphertext…');
       const res = await fetch(meta.url);
       if (!res.ok) throw new Error('Download HTTP ' + res.status);
@@ -380,23 +433,22 @@ async function decryptOne(f) {
       setStatus(status, 'Verifying & decrypting…');
       plain = await decryptBlob(cipher, pass, tempKey);
       flow.done(3);
+
+      const url = URL.createObjectURL(new Blob([plain], { type: 'application/octet-stream' }));
+      a.href = url; a.download = name; a.classList.remove('hidden');
+
+      const ext = name.split('.').pop().toLowerCase();
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+        img.src = url;
+        img.classList.remove('hidden');
+        img.onclick = () => showImageModal(url);
+      } else if (name.endsWith('.txt') || ext === 'txt') {
+        ta.value = new TextDecoder().decode(plain);
+        ta.classList.remove('hidden');
+      }
+
+      setStatus(status, 'Decrypted: ' + name, 'ok');
     }
-
-    const name = safeFilename(meta.objname || f.objname) || 'file.bin';
-    const blobUrl = URL.createObjectURL(new Blob([plain], { type: 'application/octet-stream' }));
-    a.href = blobUrl; a.download = name; a.classList.remove('hidden');
-
-    const ext = name.split('.').pop().toLowerCase();
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-      img.src = blobUrl;
-      img.classList.remove('hidden');
-      img.onclick = () => showImageModal(blobUrl);
-    } else if (name.endsWith('.txt') || ext === 'txt') {
-      ta.value = new TextDecoder().decode(plain);
-      ta.classList.remove('hidden');
-    }
-
-    setStatus(status, 'Decrypted: ' + name, 'ok');
 
     if (meta.deleteondownload) {
       deleteObject({ region: REGION, key: f.key }).then(refreshList).catch(() => {});
@@ -404,6 +456,7 @@ async function decryptOne(f) {
   } catch (err) {
     console.error(err);
     flow.error(currentStep);
+    if (downloadBar) downloadBar.error();
     const isCrypto = err && /decrypt|OperationError|tag/i.test(String(err && err.message || err));
     setStatus(
       status,

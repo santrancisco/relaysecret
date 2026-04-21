@@ -120,7 +120,7 @@ export function randomTempKey() {
 // ---------------------------------------------------------------------------
 
 const MAGIC_V2 = new Uint8Array([0x52, 0x53, 0x76, 0x32, 0, 0, 0, 0]); // "RSv2\0\0\0\0"
-const RSv2_HEADER_LEN = 48; // 8 + 4 + 8 + 16 + 12
+export const RSv2_HEADER_LEN = 48; // 8 + 4 + 8 + 16 + 12
 
 const CHUNK_LEN_PREFIX = 4; // uint32 LE before each chunk ciphertext
 

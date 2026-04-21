@@ -209,6 +209,176 @@ function ensureImageModal() {
   return _modalEl;
 }
 
+// ------------------------------------------------------------------
+// streamDecryptedDownload — pipe an async-generator of Uint8Array chunks
+// directly to a browser download, without accumulating all bytes in RAM.
+//
+// Strategy (in order of preference):
+//   1. File System Access API (showSaveFilePicker) — truly streaming, each
+//      chunk is written to disk as it arrives. Available in Chrome/Edge 86+.
+//   2. ReadableStream → Response → objectURL blob — the browser streams the
+//      Response body into a Blob without requiring a second full copy in JS.
+//      Avoids the explicit reassembly loop. Supported everywhere.
+//
+// Returns { blobUrl, usedPicker } where blobUrl is null if the picker was
+// used (the file was already saved), or a blob: URL if the fallback was used
+// (caller should set it on an <a download> and click it).
+//
+// chunkGen must be an async generator yielding Uint8Array.
+// onChunk(chunk) is called for each yielded chunk so the caller can update
+// progress — it runs before the chunk is written/enqueued.
+// ------------------------------------------------------------------
+export async function streamDecryptedDownload(filename, chunkGen, onChunk) {
+  // --- Path 1: File System Access API ---
+  if (typeof window.showSaveFilePicker === 'function') {
+    let fileHandle;
+    try {
+      fileHandle = await window.showSaveFilePicker({ suggestedName: filename });
+    } catch (e) {
+      // User cancelled the picker — propagate so the caller can handle it.
+      if (e && e.name === 'AbortError') throw e;
+      // Any other error (permission denied, etc.) — fall through to blob path.
+      fileHandle = null;
+    }
+    if (fileHandle) {
+      const writable = await fileHandle.createWritable();
+      try {
+        for await (const chunk of chunkGen) {
+          if (onChunk) onChunk(chunk);
+          await writable.write(chunk);
+        }
+        await writable.close();
+      } catch (err) {
+        await writable.abort();
+        throw err;
+      }
+      return { blobUrl: null, usedPicker: true };
+    }
+  }
+
+  // --- Path 2: ReadableStream → objectURL (avoids the reassembly copy) ---
+  let resolve;
+  const done = new Promise(r => { resolve = r; });
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of chunkGen) {
+          if (onChunk) onChunk(chunk);
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      } catch (err) {
+        controller.error(err);
+      } finally {
+        resolve();
+      }
+    },
+  });
+
+  const response = new Response(stream);
+  const blob = await response.blob();
+  await done;
+  const blobUrl = URL.createObjectURL(blob);
+  return { blobUrl, usedPicker: false };
+}
+
+// ------------------------------------------------------------------
+// Upload progress bar — shows a filled bar, part count, bytes, and
+// an estimated speed / time remaining during multipart uploads.
+//
+//   const bar = createUploadProgressBar(containerEl, totalBytes);
+//   bar.show();
+//   bar.update(bytesUploaded, partsComplete, totalParts);
+//   bar.done();    // fills to 100 % and marks complete
+//   bar.error();   // shows error state
+// ------------------------------------------------------------------
+export function createUploadProgressBar(containerEl, totalBytes, { partLabel = 'Part' } = {}) {
+  containerEl.textContent = '';
+  containerEl.classList.add('upload-progress-wrap');
+
+  const track = document.createElement('div');
+  track.className = 'upload-progress-track';
+  const fill = document.createElement('div');
+  fill.className = 'upload-progress-fill';
+  track.append(fill);
+
+  const meta = document.createElement('div');
+  meta.className = 'upload-progress-meta';
+
+  const left = document.createElement('span');
+  left.className = 'upload-progress-parts';
+
+  const right = document.createElement('span');
+  right.className = 'upload-progress-speed';
+
+  meta.append(left, right);
+  containerEl.append(track, meta);
+
+  let startTime = null;
+  let lastBytes = 0;
+  let lastTime = 0;
+  // Smoothed speed (exponential moving average, α=0.3)
+  let smoothedSpeed = 0;
+
+  function update(uploadedBytes, partsComplete, totalParts) {
+    const now = Date.now();
+    if (startTime === null) { startTime = now; lastTime = now; }
+
+    const pct = totalBytes > 0 ? Math.min(100, (uploadedBytes / totalBytes) * 100) : 0;
+    fill.style.width = pct.toFixed(1) + '%';
+
+    left.textContent =
+      partLabel + ' ' + partsComplete + ' / ' + totalParts +
+      '  ·  ' + formatBytes(uploadedBytes) + ' / ' + formatBytes(totalBytes);
+
+    // Speed: measure delta since last update, smooth it.
+    const dt = (now - lastTime) / 1000;
+    if (dt > 0.25) {
+      const instantSpeed = (uploadedBytes - lastBytes) / dt;
+      smoothedSpeed = smoothedSpeed === 0
+        ? instantSpeed
+        : smoothedSpeed * 0.7 + instantSpeed * 0.3;
+      lastBytes = uploadedBytes;
+      lastTime = now;
+    }
+
+    if (smoothedSpeed > 0) {
+      const remaining = (totalBytes - uploadedBytes) / smoothedSpeed;
+      right.textContent = formatBytes(smoothedSpeed) + '/s  ·  ' + formatTime(remaining);
+    } else {
+      right.textContent = '';
+    }
+  }
+
+  function done() {
+    fill.style.width = '100%';
+    fill.classList.add('upload-progress-fill--done');
+    left.textContent = formatBytes(totalBytes) + ' uploaded';
+    right.textContent = '';
+  }
+
+  function error() {
+    fill.classList.add('upload-progress-fill--error');
+    right.textContent = 'Upload failed';
+  }
+
+  return {
+    show:   () => { containerEl.classList.remove('hidden'); },
+    hide:   () => { containerEl.classList.add('hidden'); },
+    update,
+    done,
+    error,
+  };
+}
+
+function formatTime(seconds) {
+  if (!isFinite(seconds) || seconds < 0) return '';
+  if (seconds < 60)  return Math.ceil(seconds) + 's';
+  if (seconds < 3600) return Math.ceil(seconds / 60) + 'm';
+  return (seconds / 3600).toFixed(1) + 'h';
+}
+
 export function showImageModal(src) {
   const { overlay, img } = ensureImageModal();
   img.src = src;
