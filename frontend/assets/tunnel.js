@@ -7,6 +7,19 @@
 //
 // If the URL has no tunnelid we prompt for a room name and redirect.
 
+// XML-escape a string for safe interpolation into XML bodies (e.g. ETag values
+// in CompleteMultipartUpload). R2/S3 ETags are typically quoted MD5 hex strings
+// and will never contain these characters in practice, but defensive escaping
+// prevents any unexpected value from producing malformed XML.
+function xmlEscape(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 import { encryptBlob, decryptBlob, sha256Hex, createChunkedEncryptContext, decryptChunked, detectFormat, RSv2_HEADER_LEN } from './crypto.js';
 import {
   getTunnelUploadPresign, getDownloadPresign, getMultipartPresign, listTunnel, deleteObject,
@@ -43,18 +56,26 @@ function readPass(id) {
 }
 
 // Lazily create the encrypt / decrypt progress flow widgets.
-let _encFlow = null;
+// (Re-)create the correct progress flow for each upload. RSv1 and RSv2 have
+// different step lists, and both write to the same #encProgress container, so
+// we avoid caching to prevent stale node references across upload attempts.
 let _decFlow = null;
 function encFlow() {
-  if (_encFlow) return _encFlow;
-  _encFlow = createProgressFlow($('encProgress'), [
+  return createProgressFlow($('encProgress'), [
     'Read the file from disk',
     'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
     'Encrypt with AES-GCM-256 in your browser',
     'Request a short-lived R2 upload URL',
     'Upload ciphertext directly to R2',
   ]);
-  return _encFlow;
+}
+function encFlowChunked() {
+  return createProgressFlow($('encProgress'), [
+    'Request multipart upload URLs',
+    'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
+    'Encrypt chunks with AES-GCM-256 in your browser',
+    'Upload ciphertext directly to R2',
+  ]);
 }
 function decFlow() {
   if (_decFlow) return _decFlow;
@@ -111,9 +132,12 @@ async function createRoom() {
 async function refreshList() {
   setStatus($('listStatus'), 'Loading files…');
   try {
-    const files = await listTunnel({ region: REGION, tunnel: state.tunnelId });
-    renderList(files || []);
-    setStatus($('listStatus'), files.length + ' file(s)');
+    const resp = await listTunnel({ region: REGION, tunnel: state.tunnelId });
+    const files = (resp && resp.objects) || [];
+    const truncated = !!(resp && resp.truncated);
+    renderList(files);
+    const label = files.length + ' file(s)' + (truncated ? ' (list capped at 200 — delete older files to see more)' : '');
+    setStatus($('listStatus'), label, truncated ? 'warn' : null);
   } catch (err) {
     setStatus($('listStatus'), 'Failed to list: ' + (err.message || err), 'err');
   }
@@ -180,7 +204,7 @@ function setFile(f) {
 $('btnUpload').onclick = async () => {
   if (!state.file) return;
   const isChunked = state.file.size > CHUNK_THRESHOLD;
-  const flow = encFlow();
+  const flow = isChunked ? encFlowChunked() : encFlow();
   flow.show();
   flow.reset();
   let currentStep = 0;
@@ -195,6 +219,7 @@ $('btnUpload').onclick = async () => {
 
     if (isChunked) {
       // ---- RSv2 chunked multipart path ----
+      // Steps: 0=Request URLs, 1=Derive key, 2=Encrypt chunks, 3=Upload
       const file = state.file;
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
@@ -235,6 +260,10 @@ $('btnUpload').onclick = async () => {
         bodies.push({ index: i, partNumber: mp.partUrls[i].partNumber, url: mp.partUrls[i].url, body, plainSize: plainChunk.length });
         chunkOffset = end;
       }
+      flow.done(2);
+
+      currentStep = 3;
+      flow.start(3);
 
       // --- Upload parts with bounded concurrency (max 3 in-flight) ---
       const CONCURRENCY = 3;
@@ -269,7 +298,7 @@ $('btnUpload').onclick = async () => {
 
       bar.done();
       const partsXml = partETags
-        .map(p => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${p.etag}</ETag></Part>`)
+        .map(p => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${xmlEscape(p.etag)}</ETag></Part>`)
         .join('');
       const completeBody = `<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUpload>${partsXml}</CompleteMultipartUpload>`;
       const completeRes = await fetch(mp.completeUrl, {
@@ -278,7 +307,7 @@ $('btnUpload').onclick = async () => {
         body: completeBody,
       });
       if (!completeRes.ok) throw new Error('Complete multipart failed: HTTP ' + completeRes.status);
-      flow.done(2);
+      flow.done(3);
 
       setStatus($('uploadStatus'), 'Uploaded and encrypted end-to-end.', 'ok');
     } else {

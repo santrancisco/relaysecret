@@ -15,12 +15,29 @@ import {
   createProgressFlow, createUploadProgressBar, streamDecryptedDownload, showImageModal,
 } from './ui.js';
 
-// Lazy progress flow widgets for the encrypt / decrypt paths.
-let _encFlow = null;
+// XML-escape a string for safe interpolation into XML bodies (e.g. ETag values
+// in CompleteMultipartUpload). R2/S3 ETags are typically quoted MD5 hex strings
+// and will never contain these characters in practice, but defensive escaping
+// prevents any unexpected value from producing malformed XML.
+function xmlEscape(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Progress flow widgets for the encrypt / decrypt paths.
+// RSv1 (single-shot) and RSv2 (multipart) have different step lists because
+// the multipart path requests upload URLs before key derivation, and splits
+// encryption and upload into two distinct tracked steps.
+// Both write to the same #encProgress container, so we (re-)create the
+// correct one at the start of each upload rather than caching, to avoid
+// stale node references if the user switches between small and large files.
 let _decFlow = null;
 function encFlow() {
-  if (_encFlow) return _encFlow;
-  _encFlow = createProgressFlow($('encProgress'), [
+  return createProgressFlow($('encProgress'), [
     'Read message / file bytes',
     'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
     'Encrypt with AES-GCM-256 in your browser',
@@ -28,7 +45,15 @@ function encFlow() {
     'Upload ciphertext directly to R2',
     'Build share URL (key stays in #fragment)',
   ]);
-  return _encFlow;
+}
+function encFlowChunked() {
+  return createProgressFlow($('encProgress'), [
+    'Request multipart upload URLs',
+    'Derive AES key (PBKDF2-SHA256, 600 000 iters)',
+    'Encrypt chunks with AES-GCM-256 in your browser',
+    'Upload ciphertext directly to R2',
+    'Build share URL (key stays in #fragment)',
+  ]);
 }
 function decFlow() {
   if (_decFlow) return _decFlow;
@@ -162,7 +187,7 @@ $('btnUploadAnother').onclick = () => {
 $('btnEncrypt').onclick = async () => {
   const isFile = state.mode === 'file';
   const isChunked = isFile && state.file && state.file.size > CHUNK_THRESHOLD;
-  const flow = encFlow();
+  const flow = isChunked ? encFlowChunked() : encFlow();
   flow.show();
   flow.reset();
   let currentStep = 0;
@@ -182,6 +207,7 @@ $('btnEncrypt').onclick = async () => {
 
     if (isChunked) {
       // ---- RSv2 chunked multipart path ----
+      // Steps: 0=Request URLs, 1=Derive key, 2=Encrypt chunks, 3=Upload, 4=Build URL
       const file = state.file;
       const filename = safeFilename(file.name) || 'file.bin';
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -227,6 +253,10 @@ $('btnEncrypt').onclick = async () => {
         bodies.push({ index: i, partNumber: mp.partUrls[i].partNumber, url: mp.partUrls[i].url, body, plainSize: plainChunk.length });
         chunkOffset = end;
       }
+      flow.done(2);
+
+      currentStep = 3;
+      flow.start(3);
 
       // --- Upload parts with bounded concurrency (max 3 in-flight) ---
       const CONCURRENCY = 3;
@@ -265,7 +295,7 @@ $('btnEncrypt').onclick = async () => {
 
       // Complete multipart upload — S3/R2 requires XML body with part ETags.
       const partsXml = partETags
-        .map(p => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${p.etag}</ETag></Part>`)
+        .map(p => `<Part><PartNumber>${p.partNumber}</PartNumber><ETag>${xmlEscape(p.etag)}</ETag></Part>`)
         .join('');
       const completeBody = `<?xml version="1.0" encoding="UTF-8"?><CompleteMultipartUpload>${partsXml}</CompleteMultipartUpload>`;
       const completeRes = await fetch(mp.completeUrl, {
@@ -274,12 +304,12 @@ $('btnEncrypt').onclick = async () => {
         body: completeBody,
       });
       if (!completeRes.ok) throw new Error('Complete multipart failed: HTTP ' + completeRes.status);
-      flow.done(2);
-
-      currentStep = 3;
-      flow.start(3);
-      showShareUrl(mp.region || region, mp.key, state.tempKey);
       flow.done(3);
+
+      currentStep = 4;
+      flow.start(4);
+      showShareUrl(mp.region || region, mp.key, state.tempKey);
+      flow.done(4);
       setStatus($('encStatus'), 'Encrypted end-to-end and uploaded.', 'ok');
       showDropzoneDone(safeFilename(file.name) || 'file.bin');
 

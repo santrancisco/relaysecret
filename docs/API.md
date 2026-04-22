@@ -74,13 +74,23 @@ Response:
 ```
 
 ### `GET /tunnel/list?region=X&tunnel=NAME`
-Lists objects under `1day/<tunnelHash>/`. Returns an array of `{key, objsize, objname, deleteondownload}`. Uses R2 binding `list()` server-side — no presigning needed.
+Lists objects under `1day/<tunnelHash>/`. Uses R2 binding `list()` server-side with full pagination. Returns at most 200 objects; `truncated: true` when more exist.
+
+Response:
+```json
+{
+  "objects": [{ "key": "...", "objsize": 1234, "objname": "photo.png", "deleteondownload": false }],
+  "truncated": false
+}
+```
 
 ### `DELETE /obj?region=X&key=KEY`
 Deletes the object via R2 binding. Simpler than presigning a DELETE.
 
 ### `GET /sha1/:hash`
-Proxies VirusTotal `file/report` for the given SHA-1. API key stays in Worker secret. Returns `{sha1, positives, total, vtlink, detect, error}`.
+Proxies VirusTotal v3 `GET /api/v3/files/{id}` for the given SHA-1. API key stays in Worker secret. Returns `{sha1, positives, total, vtlink, detect, error}`.
+
+`positives` is the sum of `malicious` + `suspicious` engines from `last_analysis_stats`. `total` is the sum of all engine counts. `vtlink` points to the VirusTotal GUI page for the file (using the SHA-256 returned by the v3 API). If the file is unknown to VirusTotal (HTTP 404 from upstream), `positives` and `total` are `0` and `detect` is `false`.
 
 ### `POST /clipboard/:id` — body `{"data": "<hex>"}`
 Stores ciphertext in KV under the given clipboard id with a TTL of 1 day.

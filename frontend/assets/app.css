@@ -173,6 +173,8 @@ select {
 
 /* Done */
 .dropzone.done {
+  position: relative;
+  overflow: hidden;
   border-style: solid;
   border-color: var(--color-success);
   background: var(--color-success-subtle);
@@ -183,34 +185,36 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   padding: var(--sp-6);
 }
-.dropzone.done .dz-done-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--color-success);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 6px var(--color-success-subtle);
+/* Large semi-transparent watermark tick behind the text */
+.dropzone.done::before {
+  content: '✓';
+  position: absolute;
+  font-size: 9rem;
+  line-height: 1;
+  color: var(--color-success);
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+  /* Nudge slightly so the tick optical centre aligns with the box centre */
+  transform: translateY(4px);
 }
-.dropzone.done .dz-done-icon::after {
-  content: '';
-  display: block;
-  width: 10px;
-  height: 18px;
-  border-right: 3px solid #fff;
-  border-bottom: 3px solid #fff;
-  transform: rotate(45deg) translate(-2px, -2px);
+.dropzone.done #dzDoneContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
 }
 .dropzone.done .dz-done-label {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-success);
-  font-size: var(--fs-base);
+  font-size: var(--fs-lg);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 .dropzone.done .dz-done-name {
   font-family: var(--font-mono);

@@ -13,9 +13,14 @@ import { jsonResponse, errorResponse } from '../util/json.js';
 import { resolveRegion } from '../util/regions.js';
 import { presignR2, signS3Request } from '../util/sigv4.js';
 import { makeSendKey, makeTunnelKey, tunnelHash, sanitizeFilename, b64urlEncode } from '../util/keys.js';
+import { checkHmacGate } from '../util/hmacGate.js';
 
 const ALLOWED_EXPIRE = new Set([1, 2, 3, 4, 5, 10]);
-const MAX_PARTS = 10000; // S3/R2 limit
+// 500 parts × 128 MB = 64 GB — far beyond any practical browser upload.
+// The S3/R2 hard limit is 10 000, but allowing that many in a single
+// unauthenticated request would let anyone trigger ~60 000 WebCrypto ops +
+// a real CreateMultipartUpload R2 call per request, making this a cheap DoS.
+const MAX_PARTS = 500;
 
 async function createMultipartUpload(env, region, key, metaHeaders) {
   const { amzDate, authorization } = await signS3Request({
@@ -61,12 +66,20 @@ async function createMultipartUpload(env, region, key, metaHeaders) {
 
 export async function presignMultipartInit(url, request, env) {
   const q = url.searchParams;
+
+  // HMAC gate — same gate as presignPut / presignTunnelPut. All upload-initiating
+  // routes must be gated consistently so that setting HMAC_SECRET actually works.
+  const passed = await checkHmacGate(env, q.get('exp'));
+  if (!passed) {
+    return errorResponse('hmac gate failed', 'HMAC_GATE', 403, env, request);
+  }
+
   const region = resolveRegion(q.get('region'), env);
 
   // chunk count
   let chunks = parseInt(q.get('chunks') || '0', 10);
   if (chunks < 1 || chunks > MAX_PARTS) {
-    return errorResponse('chunks must be 1..10000', 'BAD_INPUT', 400, env, request);
+    return errorResponse('chunks must be 1..500', 'BAD_INPUT', 400, env, request);
   }
 
   // filename

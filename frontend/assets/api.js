@@ -15,6 +15,12 @@ function base() {
   return u.replace(/\/$/, '');
 }
 
+// uploadExp — the time-bound HMAC token for the Worker's HMAC gate.
+// Returns '' when HMAC_SECRET is "none" (the default); the Worker ignores it.
+function uploadExp() {
+  return (window.CONFIG && window.CONFIG.uploadExp) || '';
+}
+
 function qs(params) {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -48,18 +54,24 @@ async function postJSON(path, params) {
 
 // --- R2 presign: single-recipient send ---------------------------------
 export function getUploadPresign({ region, expire, filename, deleteOnDownload }) {
-  return getJSON('/presign/put', {
+  const params = {
     region, expire, filename,
     deleteOnDownload: deleteOnDownload ? 'true' : 'false',
-  });
+  };
+  const exp = uploadExp();
+  if (exp) params.exp = exp;
+  return getJSON('/presign/put', params);
 }
 
 // --- R2 presign: tunnel/room upload (always 1 day) ---------------------
 export function getTunnelUploadPresign({ region, tunnel, filename, deleteOnDownload }) {
-  return getJSON('/presign/tunnel-put', {
+  const params = {
     region, tunnel, filename,
     deleteOnDownload: deleteOnDownload ? 'true' : 'false',
-  });
+  };
+  const exp = uploadExp();
+  if (exp) params.exp = exp;
+  return getJSON('/presign/tunnel-put', params);
 }
 
 // --- R2 presign: download ---------------------------------------------
@@ -74,6 +86,8 @@ export function getMultipartPresign({ region, expire, filename, chunks, deleteOn
     deleteOnDownload: deleteOnDownload ? 'true' : 'false',
   };
   if (tunnel) params.tunnel = tunnel;
+  const exp = uploadExp();
+  if (exp) params.exp = exp;
   return postJSON('/presign/multipart-init', params);
 }
 

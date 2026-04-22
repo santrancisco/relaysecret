@@ -395,7 +395,7 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 info "build dir: ${BUILD_DIR}"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  info "[dry-run] would cp -R ${FRONTEND_DIR}/ ${BUILD_DIR}/ and substitute worker origin"
+  info "[dry-run] would cp -R ${FRONTEND_DIR}/ ${BUILD_DIR}/, substitute worker origin + HMAC exp token"
 else
   # -a preserves timestamps and permissions. Trailing "/." copies contents.
   cp -a "${FRONTEND_DIR}/." "${BUILD_DIR}/"
@@ -417,10 +417,31 @@ else
     warn "missing ${HEADERS_FILE} — skipping CSP substitution"
   fi
 
+  # Generate the HMAC upload token for the HMAC gate.
+  # When HMAC_SECRET is "none" we embed an empty string — the Worker ignores it.
+  # When set, we mint a token that expires 3 years from now so operators don't
+  # need to redeploy just to refresh the token. Rotate by changing HMAC_SECRET
+  # and redeploying both the worker (new secret) and pages (new token).
+  #
+  # Token format: "<unix_expiry>.<hex_hmac_sha256(secret, ascii_expiry)>"
+  # This matches the format validated by worker/src/util/hmacGate.js.
+  UPLOAD_EXP_VALUE=""
+  if [[ "${HMAC_SECRET}" != "none" && -n "${HMAC_SECRET}" ]]; then
+    EXP_TS=$(( $(date +%s) + 3 * 365 * 24 * 3600 ))
+    EXP_HMAC="$(printf '%s' "${EXP_TS}" | \
+      openssl dgst -sha256 -hmac "${HMAC_SECRET}" -hex | \
+      awk '{print $NF}')"
+    UPLOAD_EXP_VALUE="${EXP_TS}.${EXP_HMAC}"
+    info "generated uploadExp token (expires $(date -d "@${EXP_TS}" '+%Y-%m-%d' 2>/dev/null || date -r "${EXP_TS}" '+%Y-%m-%d' 2>/dev/null || echo "unix:${EXP_TS}"))"
+  else
+    info "HMAC_SECRET is 'none' — uploadExp token will be empty (gate disabled)"
+  fi
+
   if [[ -f "$CONFIG_JS" ]]; then
     tmp="$(mktemp)"
     sed -e "s|<WORKER_ORIGIN_PLACEHOLDER>|https://${API_HOST}|g" \
         -e "s|__API_HOST__|${API_HOST}|g" \
+        -e "s|<UPLOAD_EXP_PLACEHOLDER>|${UPLOAD_EXP_VALUE}|g" \
         "$CONFIG_JS" > "$tmp"
     mv "$tmp" "$CONFIG_JS"
     info "patched ${CONFIG_JS}"
@@ -454,6 +475,9 @@ PY
   # Sanity check: the placeholder must not remain anywhere in the build.
   if grep -RIn '<WORKER_ORIGIN_PLACEHOLDER>' "$BUILD_DIR" >/dev/null 2>&1; then
     die "build sanity check failed: <WORKER_ORIGIN_PLACEHOLDER> still present in ${BUILD_DIR}"
+  fi
+  if grep -RIn '<UPLOAD_EXP_PLACEHOLDER>' "$BUILD_DIR" >/dev/null 2>&1; then
+    die "build sanity check failed: <UPLOAD_EXP_PLACEHOLDER> still present in ${BUILD_DIR}"
   fi
 fi
 
