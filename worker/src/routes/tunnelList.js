@@ -6,6 +6,11 @@ import { jsonResponse, errorResponse } from '../util/json.js';
 import { resolveRegion } from '../util/regions.js';
 import { tunnelHash } from '../util/keys.js';
 
+// Hard cap on objects returned per tunnel list. A tunnel with more than this
+// many files is not usable in a browser anyway, and iterating past this would
+// mean unbounded Worker CPU time if someone floods the tunnel with objects.
+const MAX_LIST_OBJECTS = 200;
+
 function b64urlDecode(s) {
   if (!s) return '';
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
@@ -35,18 +40,43 @@ export async function tunnelList(url, request, env) {
   const tHash = await tunnelHash(tunnel);
   const prefix = `1day/${tHash}/`;
 
-  const listed = await region.binding.list({ prefix, include: ['customMetadata'] });
+  // Paginate through all R2 objects under the tunnel prefix. R2 list() returns
+  // at most 1000 objects per call and sets `truncated = true` when more exist.
+  // We collect up to MAX_LIST_OBJECTS total to bound Worker CPU time and
+  // prevent a trivially flooded tunnel from stalling legitimate users.
   const out = [];
-  for (const obj of listed.objects || []) {
-    const meta = obj.customMetadata || {};
-    out.push({
-      key: obj.key,
-      objsize: obj.size,
-      objname: b64urlDecode(meta.filename || '') || 'unknown-file-name',
-      deleteondownload: (meta.deleteondownload || 'false') === 'true',
-    });
-  }
-  // Return a bare array per docs/API.md. Previously wrapped in an object,
-  // which broke the frontend's `for (const f of files)` iteration.
-  return jsonResponse(out, 200, env, request);
+  let cursor;
+  let truncated = false;
+
+  do {
+    const opts = { prefix, include: ['customMetadata'], limit: 1000 };
+    if (cursor) opts.cursor = cursor;
+
+    const page = await region.binding.list(opts);
+
+    for (const obj of page.objects || []) {
+      if (out.length >= MAX_LIST_OBJECTS) {
+        truncated = true;
+        break;
+      }
+      const meta = obj.customMetadata || {};
+      out.push({
+        key: obj.key,
+        objsize: obj.size,
+        objname: b64urlDecode(meta.filename || '') || 'unknown-file-name',
+        deleteondownload: (meta.deleteondownload || 'false') === 'true',
+      });
+    }
+
+    if (page.truncated && out.length < MAX_LIST_OBJECTS) {
+      cursor = page.cursor;
+    } else {
+      truncated = truncated || page.truncated;
+      break;
+    }
+  } while (true);
+
+  // Return a bare array per docs/API.md. Include a `truncated` flag so the
+  // frontend can warn users when the list has been capped.
+  return jsonResponse({ objects: out, truncated: !!truncated }, 200, env, request);
 }

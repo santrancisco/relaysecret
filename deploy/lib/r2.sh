@@ -9,7 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/cf_api.sh"
 r2_bucket_exists() {
   local name="$1"
   local resp
-  if resp="$(cf_api_try GET "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}")"; then
+  if resp="$(cf_api_try GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}")"; then
     return 0
   fi
   return 1
@@ -27,7 +27,7 @@ r2_create_bucket() {
   fi
 
   echo "  - creating bucket '${name}' (locationHint=${hint})"
-  cf_api POST "/accounts/${CF_ACCOUNT_ID}/r2/buckets" \
+  cf_api POST "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets" \
     "$(jq -cn --arg n "$name" --arg h "$hint" '{name:$n, locationHint:$h}')" \
     >/dev/null
 }
@@ -37,6 +37,10 @@ r2_create_bucket() {
 # to R2 (with x-amz-meta-* custom headers, which trigger a preflight) and to
 # GET + read the response body.
 #
+# FRONTEND_ORIGIN may be a single origin or a comma-separated list (e.g.
+# "https://www.example.com,https://example.com"). All listed origins are
+# added to the R2 CORS allowed origins array.
+#
 # Without this, browser uploads fail at CORS preflight and downloads fail at
 # response-body read. Without CORS, the whole presigned-URL model is useless.
 #
@@ -45,24 +49,27 @@ r2_create_bucket() {
 # maxAgeSeconds). This is NOT the same as the S3 XML CORS PutBucketCors body.
 r2_apply_cors() {
   local name="$1"
-  local origin="$2"
+  local origins_csv="$2"
 
-  echo "  - applying CORS policy to '${name}' (origin=${origin})"
+  echo "  - applying CORS policy to '${name}' (origins=${origins_csv})"
+  # Convert comma-separated origins into a JSON array.
+  local origins_json
+  origins_json="$(echo "$origins_csv" | tr ',' '\n' | jq -R . | jq -cs .)"
   local body
-  body="$(jq -cn --arg origin "$origin" '{
+  body="$(jq -cn --argjson origins "$origins_json" '{
     rules: [
       {
         allowed: {
-          origins:  [$origin],
-          methods:  ["GET","PUT","HEAD"],
-          headers:  ["content-type","x-amz-meta-filename","x-amz-meta-deleteondownload"]
+          origins:  $origins,
+          methods:  ["GET","PUT","POST","HEAD"],
+          headers:  ["content-type","x-amz-meta-filename","x-amz-meta-deleteondownload","x-amz-content-sha256"]
         },
         exposeHeaders: ["etag","content-length","content-type"],
         maxAgeSeconds: 3600
       }
     ]
   }')"
-  cf_api PUT "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}/cors" "$body" >/dev/null
+  cf_api PUT "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}/cors" "$body" >/dev/null
 }
 
 # r2_apply_lifecycle NAME LIFECYCLE_JSON_FILE
@@ -78,7 +85,7 @@ r2_apply_lifecycle() {
   echo "  - applying lifecycle rules to '${name}'"
   local body
   body="$(cat "$file")"
-  cf_api PUT "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}/lifecycle" "$body" >/dev/null
+  cf_api PUT "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}/lifecycle" "$body" >/dev/null
 }
 
 # r2_create_api_token BUCKETS_CSV
@@ -109,7 +116,7 @@ r2_create_api_token() {
     }')"
 
   local result
-  result="$(cf_api POST "/accounts/${CF_ACCOUNT_ID}/r2/tokens" "$body")"
+  result="$(cf_api POST "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/tokens" "$body")"
   local access secret
   access="$(echo "$result" | jq -r '.accessKeyId // .access_key_id // empty')"
   secret="$(echo "$result" | jq -r '.secretAccessKey // .secret_access_key // empty')"
@@ -136,15 +143,15 @@ r2_empty_bucket() {
   local cursor="" page objs key
   while :; do
     if [[ -n "$cursor" ]]; then
-      page="$(cf_api GET "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}/objects?per_page=1000&cursor=${cursor}" || echo '{}')"
+      page="$(cf_api GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}/objects?per_page=1000&cursor=${cursor}" || echo '{}')"
     else
-      page="$(cf_api GET "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}/objects?per_page=1000" || echo '{}')"
+      page="$(cf_api GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}/objects?per_page=1000" || echo '{}')"
     fi
     objs="$(echo "$page" | jq -r '.[]?.key // empty' 2>/dev/null || true)"
     [[ -z "$objs" ]] && break
     while IFS= read -r key; do
       [[ -z "$key" ]] && continue
-      cf_api DELETE "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}/objects/${key}" >/dev/null || true
+      cf_api DELETE "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}/objects/${key}" >/dev/null || true
     done <<< "$objs"
     cursor="$(echo "$page" | jq -r '.cursor // empty' 2>/dev/null || true)"
     [[ -z "$cursor" ]] && break
@@ -159,5 +166,5 @@ r2_delete_bucket() {
     return 0
   fi
   echo "  - deleting bucket '${name}'"
-  cf_api DELETE "/accounts/${CF_ACCOUNT_ID}/r2/buckets/${name}" >/dev/null
+  cf_api DELETE "/accounts/${CLOUDFLARE_ACCOUNT_ID}/r2/buckets/${name}" >/dev/null
 }

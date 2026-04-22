@@ -8,7 +8,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/cf_api.sh"
 # worker_render_wrangler_toml SRC DST
 # Substitutes placeholders in wrangler.toml.example to produce wrangler.toml.
 # Placeholders (all must be set as env vars before calling):
-#   __CF_ACCOUNT_ID__
+#   __CLOUDFLARE_ACCOUNT_ID__
 #   __WORKER_NAME__
 #   __KV_NAMESPACE_ID__
 #   __R2_BUCKET_US__  __R2_BUCKET_EU__  __R2_BUCKET_APAC__
@@ -23,7 +23,7 @@ worker_render_wrangler_toml() {
 
   local content
   content="$(cat "$src")"
-  content="${content//__CF_ACCOUNT_ID__/${CF_ACCOUNT_ID}}"
+  content="${content//__CLOUDFLARE_ACCOUNT_ID__/${CLOUDFLARE_ACCOUNT_ID}}"
   content="${content//__WORKER_NAME__/${WORKER_NAME}}"
   content="${content//__KV_NAMESPACE_ID__/${KV_NAMESPACE_ID}}"
   content="${content//__R2_BUCKET_US__/${R2_BUCKET_US}}"
@@ -42,7 +42,7 @@ _wrangler_run() {
     echo "[dry-run] (cd ${dir} && wrangler $*)"
     return 0
   fi
-  (cd "$dir" && CLOUDFLARE_API_TOKEN="${CF_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CF_ACCOUNT_ID}" wrangler "$@")
+  (cd "$dir" && wrangler "$@")
 }
 
 # worker_deploy WORKER_DIR
@@ -63,8 +63,7 @@ worker_put_secret() {
     return 0
   fi
   # shellcheck disable=SC2031
-  (cd "$dir" && CLOUDFLARE_API_TOKEN="${CF_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CF_ACCOUNT_ID}" \
-    printf '%s' "$value" | wrangler secret put "$name")
+  (cd "$dir" && printf '%s' "$value" | wrangler secret put "$name")
 }
 
 # worker_delete_secret WORKER_DIR NAME
@@ -75,8 +74,7 @@ worker_delete_secret() {
     echo "[dry-run] (cd ${dir} && wrangler secret delete ${name} --force)"
     return 0
   fi
-  (cd "$dir" && CLOUDFLARE_API_TOKEN="${CF_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CF_ACCOUNT_ID}" \
-    wrangler secret delete "$name" --force) || true
+  (cd "$dir" && wrangler secret delete "$name" --force) || true
 }
 
 # worker_bind_domain API_HOST WORKER_NAME ZONE_ID
@@ -88,7 +86,7 @@ worker_bind_domain() {
 
   # Look up existing domains
   local existing
-  existing="$(cf_api GET "/accounts/${CF_ACCOUNT_ID}/workers/domains" || echo '[]')"
+  existing="$(cf_api GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains" || echo '[]')"
   local found
   found="$(echo "$existing" | jq -r --arg h "$host" --arg n "$name" \
     '.[]? | select(.hostname==$h and .service==$n) | .id' | head -n1)"
@@ -115,12 +113,12 @@ worker_bind_domain() {
       environment: $env,
       override_existing_dns_record: true
     }')"
-  cf_api PUT "/accounts/${CF_ACCOUNT_ID}/workers/domains" "$body" >/dev/null
+  cf_api PUT "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains" "$body" >/dev/null
 }
 
 # worker_unpublish WORKER_NAME
 worker_unpublish() {
   local name="$1"
   echo "  - deleting worker script '${name}'"
-  cf_api_try DELETE "/accounts/${CF_ACCOUNT_ID}/workers/scripts/${name}?force=true" >/dev/null || true
+  cf_api_try DELETE "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${name}?force=true" >/dev/null || true
 }
