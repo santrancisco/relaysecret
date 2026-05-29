@@ -10,6 +10,7 @@ import { errorResponse } from './util/json.js';
 import { presignPut } from './routes/presignPut.js';
 import { presignTunnelPut } from './routes/presignTunnelPut.js';
 import { presignGet } from './routes/presignGet.js';
+import { presignMultipartInit } from './routes/presignMultipart.js';
 import { tunnelList } from './routes/tunnelList.js';
 import { deleteObj } from './routes/deleteObj.js';
 import { sha1Route } from './routes/sha1.js';
@@ -38,6 +39,9 @@ export default {
       }
       if (method === 'GET' && pathname === '/presign/get') {
         return await presignGet(url, request, env);
+      }
+      if (method === 'POST' && pathname === '/presign/multipart-init') {
+        return await presignMultipartInit(url, request, env);
       }
 
       // --- tunnel + obj management --------------------------------------

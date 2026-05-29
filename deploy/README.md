@@ -109,7 +109,7 @@ Every step is re-runnable. Fix the cause, then re-run `./deploy/deploy.sh --yes`
 
 | Step        | If it fails...                                                           |
 |-------------|--------------------------------------------------------------------------|
-| Preflight   | Check `CF_API_TOKEN` permissions (see table above).                      |
+| Preflight   | Check `CLOUDFLARE_API_TOKEN` permissions (see table above).              |
 | R2 buckets  | Existing buckets are skipped. Permission errors -> re-check token.       |
 | R2 token    | Pre-create an R2 token in the dashboard and paste into `config.env`.    |
 | KV          | Re-run — `kv_create_namespace` is lookup-first.                          |

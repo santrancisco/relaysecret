@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Relay Secret — Shared clipboard</title>
+  <meta name="description" content="Sync your clipboard between devices — encrypted end-to-end, stored in Cloudflare KV for 1 day.">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/assets/app.css">
@@ -11,31 +12,37 @@
 </head>
 <body>
   <span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret" target="_blank" rel="noopener">Fork me on GitHub</a></span>
+
   <header class="site-header">
-    <h1 class="wordmark"><a href="/">Relay Secret</a></h1>
-    <nav>
+    <p class="wordmark"><a href="/">Relay Secret</a></p>
+    <nav aria-label="Main navigation">
       <a href="/">Send</a>
       <a href="/tunnel/">Tunnel</a>
-      <a href="/clipboard/" class="active">Clipboard</a>
+      <a href="/clipboard/" class="active" aria-current="page">Clipboard</a>
     </nav>
-    <p class="tagline">Sync a clipboard between devices — encrypted end-to-end, stored in Cloudflare KV for 1 day.</p>
+    <p class="tagline">Sync your clipboard between devices — encrypted end-to-end, stored for 1 day.</p>
   </header>
 
   <main class="page">
     <div class="card stack">
       <h2>Shared clipboard</h2>
       <p class="muted" id="clipInfo">Loading…</p>
-      <p class="muted">Copy something on machine A, click <b>Update clipboard</b>. On machine B, visit the same URL and click <b>Get clipboard</b>. Your browser must grant clipboard permission.</p>
+
+      <div class="callout">
+        Copy on machine A, click <strong>Update clipboard</strong>. On machine B, visit this same URL and click <strong>Get clipboard</strong>. Your browser must grant clipboard permission.
+      </div>
 
       <div class="field">
-        <label for="passInput">Password (optional)</label>
-        <input id="passInput" type="password" autocomplete="off">
+        <label for="passInput">Password <span class="subtle">(optional)</span></label>
+        <input id="passInput" type="password" autocomplete="off" placeholder="Leave blank for no password">
       </div>
+
       <div class="row">
         <button id="btnGet" class="primary" type="button">Get clipboard</button>
         <button id="btnUpdate" type="button">Update clipboard</button>
       </div>
-      <p id="status" class="muted"></p>
+
+      <p id="status" class="muted" role="status" aria-live="polite"></p>
     </div>
   </main>
 

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Relay Secret — Tunnel</title>
+  <meta name="description" content="Ad-hoc encrypted file exchange rooms. Share the link and everyone in the room can upload and download files. 1-day expiry.">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/assets/app.css">
@@ -11,79 +12,95 @@
 </head>
 <body>
   <span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret" target="_blank" rel="noopener">Fork me on GitHub</a></span>
+
   <header class="site-header">
-    <h1 class="wordmark"><a href="/">Relay Secret</a></h1>
-    <nav>
+    <p class="wordmark"><a href="/">Relay Secret</a></p>
+    <nav aria-label="Main navigation">
       <a href="/">Send</a>
-      <a href="/tunnel/" class="active">Tunnel</a>
+      <a href="/tunnel/" class="active" aria-current="page">Tunnel</a>
       <a href="/clipboard/">Clipboard</a>
     </nav>
-    <p class="tagline">Rooms for ad-hoc exchange. Everyone who has the link sees the same file list. 1-day expiry.</p>
+    <p class="tagline">Shared rooms for ad-hoc file exchange. Everyone with the link sees the same file list. Expires after 1 day.</p>
   </header>
 
   <main class="page">
+
+    <!-- ── File list ──────────────────────────────────────── -->
     <div class="card stack">
-      <h2>Tunnel files</h2>
+      <h2>Files in this tunnel</h2>
       <p class="muted" id="tunnelInfo">Loading…</p>
 
       <div class="field">
-        <label for="decPassInput">Password to decrypt (if one was set when uploading)</label>
-        <input id="decPassInput" type="password" autocomplete="new-password">
+        <label for="decPassInput">Decryption password <span class="subtle">(if set when uploading)</span></label>
+        <input id="decPassInput" type="password" autocomplete="new-password" placeholder="Leave blank if no password was set">
       </div>
 
-      <table class="filelist">
+      <table class="filelist" aria-label="Files in this tunnel">
         <thead>
-          <tr><th>Filename</th><th>Size</th><th></th></tr>
+          <tr>
+            <th scope="col">Filename</th>
+            <th scope="col">Size</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
         </thead>
         <tbody id="fileListBody">
-          <tr><td colspan="3" class="muted">No files yet.</td></tr>
+          <tr><td colspan="3" class="muted" style="text-align:center; padding: var(--sp-6) var(--sp-3);">No files yet.</td></tr>
         </tbody>
       </table>
 
       <div class="row">
         <button id="btnRefresh" type="button">Refresh list</button>
-        <span id="listStatus" class="muted grow"></span>
+        <span id="listStatus" class="muted grow" role="status" aria-live="polite"></span>
       </div>
 
-      <div id="decProgress" class="hidden"></div>
+      <div id="decProgress" class="hidden" role="status" aria-live="polite"></div>
+      <div id="downloadBar" class="hidden" role="progressbar" aria-label="Download progress"></div>
     </div>
 
+    <!-- ── Upload ─────────────────────────────────────────── -->
     <div class="card stack">
       <h2>Upload to this tunnel</h2>
-      <p class="muted">Files are encrypted in your browser with the tunnel key before upload. Max 2 GB per file.</p>
-      <div class="dropzone" id="dropzone">
-        <p>Drag &amp; drop a file, or <a href="#" id="dzPick"><b>click to select</b></a>.</p>
+      <p class="muted">Files are encrypted in your browser with the tunnel key before upload. Large files are streamed in encrypted chunks — no fixed size limit.</p>
+
+      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop zone — drag a file here or click to select">
+        <p>Drag &amp; drop a file, or <a href="#" id="dzPick"><strong>click to browse</strong></a>.</p>
         <p class="file-info" id="dzFileInfo"></p>
       </div>
       <input type="file" id="fileInput" class="hidden" autocomplete="off">
+
       <div class="field">
-        <label for="filenameInput">Filename (metadata, not encrypted)</label>
-        <input id="filenameInput" type="text" autocomplete="off">
+        <label for="filenameInput">Filename <span class="subtle">(metadata — stored unencrypted)</span></label>
+        <input id="filenameInput" type="text" autocomplete="off" placeholder="Auto-filled from the selected file">
       </div>
       <div class="field">
-        <label for="encPassInput">Password (optional — extra layer on top of the tunnel key)</label>
-        <input id="encPassInput" type="password" autocomplete="new-password">
+        <label for="encPassInput">Password <span class="subtle">(optional — extra layer on top of the tunnel key)</span></label>
+        <input id="encPassInput" type="password" autocomplete="new-password" placeholder="Leave blank to rely on the tunnel key alone">
       </div>
+
       <div class="checkbox-row">
         <input type="checkbox" id="dodInput">
         <label for="dodInput">Delete on first download</label>
       </div>
+
       <div class="row">
         <button id="btnUpload" class="primary" type="button" disabled>Encrypt &amp; Upload</button>
-        <span id="uploadStatus" class="muted grow"></span>
+        <span id="uploadStatus" class="muted grow" role="status" aria-live="polite"></span>
       </div>
-      <div id="encProgress" class="hidden"></div>
+      <div id="encProgress" class="hidden" role="status" aria-live="polite"></div>
+      <div id="uploadBar"   class="hidden" role="progressbar" aria-label="Upload progress"></div>
     </div>
 
+    <!-- ── Decrypted result ───────────────────────────────── -->
     <div class="card stack hidden" id="decCard">
       <h2>Decrypted</h2>
-      <p id="decStatus" class="muted"></p>
-      <textarea id="decMsgOut" class="hidden" readonly></textarea>
-      <img id="decImg" class="preview hidden" alt="decrypted preview">
+      <p id="decStatus" class="muted" role="status" aria-live="polite"></p>
+      <textarea id="decMsgOut" class="hidden" readonly aria-label="Decrypted message"></textarea>
+      <img id="decImg" class="preview hidden" alt="Decrypted image preview">
       <div class="row">
         <a id="decDownload" class="btn primary hidden" download>Save decrypted file</a>
       </div>
     </div>
+
   </main>
 
   <script type="module" src="/assets/tunnel.js"></script>

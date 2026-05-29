@@ -2,80 +2,99 @@
 
 Several reasons:
 
- - Because firefoxsend was taken down and the walkthrough to deploy it is too complicated. 
- - Magicwormhole is great but needs client app installed
- - Some solutions look amazing but turn out the plaintext is sent to the server and all encryption are done on the server side
- - Many solutions are well written, looks great but the code are complex, some even use websocket, others use webrtc ... with tons of dependency which make it impossible to review and prone to supply chain attack on each rebuild.
- - Other issues such as 3rd party tracking cookie is found, too much backend code that may be proned to attacks
+- Firefox Send was taken down and the walkthrough to deploy it is too complicated.
+- Magic Wormhole is great but needs a client app installed.
+- Some solutions look amazing but send plaintext to the server — all encryption happens server-side.
+- Many solutions are well written but complex: WebSockets, WebRTC, tons of dependencies that make auditing impossible and leave you exposed to supply chain attacks on every rebuild.
+- Other issues: third-party tracking cookies, too much backend code that may be prone to attacks.
 
- What relaysecret aim for:
-  - Extremely simple code to handle api calls (1 lambda function)
-  - File upload/download operation is all done by S3 signed url means no maintainance whatsover or worry about RCE on your server.
-  - Extremely simple frontend code with minimal javascript and no 3rd party dependency (everything is done using standard webcrypto)
-  - No complicated websocket, webrtc... no need for realtime refresh ... there is literally a button to refresh the list of files in room mode.
+What RelaySecret aims for:
+- **Extremely simple backend** — a single Cloudflare Worker that mints presigned URLs. No application logic that touches your data.
+- **No server-side plaintext** — file upload/download goes directly between browser and R2 via presigned URLs. The Worker never sees file bytes.
+- **Zero dependencies** — all cryptography uses the standard Web Crypto API. No npm packages, no bundler, no build step.
+- **No WebSockets, no WebRTC** — no real-time refresh. There's a button to refresh the file list in room mode.
 
-How do you "scan for virus" ? Do you send my files to Virustotal?
-
-After decrypting the content, a sha1 hash of the data is computed and send back to our lambda to fetch Virustotal scan result for that hash. So PLEASE PLEASE PLEASE do not put a single line with your ultimate 5 characters long AD password in it if you worry someone may MITM your traffic, discover the sha1 and run bruteforce on it. 
-
-## Relay Secret
+## How it works
 
 Visit [https://www.relaysecret.com/](https://www.relaysecret.com/) to try it out.
 
-This project has 3 parts:
+The architecture is Cloudflare Workers + R2 + Pages. Three regional R2 buckets (US, EU, APAC) store ciphertext. The Worker has two jobs:
 
- - The simple backend lambda function to generate signed url for user to upload, download and delete files from S3 
- - The frontend with half of the code took from [this project writen by meixler](https://github.com/meixler/web-browser-based-file-encryption-decryption/blob/master/web-browser-based-file-encryption-decryption.html) with some extra fetch calls sprinkel ontop to handle ajax calls to the lambda and upload/download from s3
- - The terraform code which deploy a lambda function, an api gateway and our encrypted s3 bucket with special CORs policy and expire rules to make it all work ;)
+1. **Mint short-lived SigV4 presigned URLs** so the browser can PUT/GET/delete ciphertext directly against R2. The Worker never proxies bytes.
+2. **Proxy VirusTotal SHA-1 lookups** so the API key stays server-side.
 
-
-## Room mode
-
-Visit [https://www.relaysecret.com/tunnel](https://www.relaysecret.com/tunnel) to try it out.
-
-This mode let you create a "room". By visiting the URL above in another broser or device, entering the same room name, users can share and decrypt files from the same room. Note that all files in room will expire after 1 day.
-
-Room mode does not generate a random temporary key material which you will find after the hash (#) in the URL. The key material here is simply the sha256 of the roomname itself so in a way, the roomname IS THE DEFAULT PASSWORD for files (if no extra password is used). Of course, same as before, the roomname or the tempkey stays in browser and do not go back to the server.
-
-Users are encouraged to add password for extra protection. This password, same as before, will be used together with the sha256 value of the room name to make it much harder to bruteforce.
-
-## Process flow
+A KV namespace stores encrypted clipboard blobs.
 
 ### Upload file
 
- - Frontend code visits lambda function to get a S3 signed POST url for file upload
- - Frontend code encrypt the data and upload encrypted blob to S3 bucket + tag object with original filename (this is still in plaintext)
- - Frontend code generates download url
+1. Browser requests a presigned PUT URL from the Worker (with filename, expiry, region).
+2. Browser encrypts the file client-side with AES-GCM-256 using WebCrypto.
+3. Browser uploads ciphertext directly to R2 via the presigned URL.
+4. Browser builds a share URL: `https://{server}/{object-key}#{key-material}`
 
 ### Retrieve file
 
- - User visits `https://{server}/{object-key}#{key-material}`. Note that the key-material never leaves browser because it is behind anchor tag. User can choose to add his own password for extra security
- - Frontend code get signed url for the encrypted blob from the lambda
- - Frontend code download the encrypted blob and use key-material, combine with user provided password (if needed) to decrypt the blob and retrieve the plaintext content
+1. User visits the share URL. The `#key-material` never leaves the browser (not sent in Referer, not logged server-side).
+2. Browser requests a presigned GET URL from the Worker.
+3. Browser downloads ciphertext directly from R2.
+4. Browser decrypts using the key-material (and optional user password).
 
-### Expire/Delete file
+### Delete / Expire
 
- - object-key is in the format: {numberofdaytilexpired}/{uniqueID} . The s3 bucket lifecycle policy is configured base on prefix "numberofdaytilexpired" and thus we can trust s3 to do its clean up automatically.
- - If the object is tagged with "deleteondownload", the delete ajax calls is triggered automatically after user click download the file
- - Users always have option to delete the file manually after every download if deleteondownload is not set.
+- Object keys follow the format `{expiry-days}/{hex-id}`. R2 lifecycle rules auto-expire objects by prefix (1-day, 2-day, ..., 10-day).
+- Objects tagged with `deleteOnDownload` are deleted automatically after the first download.
+- Users can always delete files manually.
 
+### Room mode
+
+Visit [https://www.relaysecret.com/tunnel](https://www.relaysecret.com/tunnel).
+
+Create a "room" by entering a room name (min 8 characters). Others who enter the same room name see the same file list and can share/decrypt files. All files in a room expire after 1 day.
+
+The room name is hashed with SHA-256 to derive the key material. The room name itself is never sent to the server — only the first 16 hex chars of its hash are used as the tunnel ID. Users can add an optional password for extra protection.
+
+## Large file support
+
+Files under 500 MB use the **RSv1** format: the entire file is encrypted in one shot with AES-GCM-256, uploaded via a single presigned PUT URL.
+
+Files over 500 MB use the **RSv2** chunked format:
+- The file is split into 128 MB chunks. Each chunk is independently AES-GCM encrypted with a unique IV (derived by XOR-ing the chunk index into a random base nonce).
+- Chunks are uploaded via S3 multipart presigned URLs directly to R2 — still no bytes through the Worker.
+- On download, the browser detects the format from the first 48 bytes and decrypts each chunk using HTTP Range requests.
+- Peak browser memory is ~260 MB regardless of total file size (128 MB plaintext + 128 MB ciphertext + overhead).
 
 ## Cryptography
 
-All cryptography operations are implemented using using the Web Crypto API. Files are encrypted using AES-CBC 256-bit symmetric encryption. The encryption key is derived from the password and a random salt using PBKDF2 derivation with 10000 iterations of SHA256 hashing.
+All cryptography uses the **Web Crypto API**. No external libraries.
+
+| Primitive | Usage |
+|-----------|-------|
+| **AES-GCM-256** | File/message encryption. Per-chunk auth tags in RSv2. |
+| **PBKDF2-HMAC-SHA256** | Key derivation from password + temp key. 600,000 iterations, 16-byte random salt. |
+| **HMAC-SHA256** | AWS SigV4 presigning, optional upload gate. |
+| **SHA-256** | Object key generation, room name derivation, VirusTotal lookups. |
+
+The encryption key is derived as: `PBKDF2-HMAC-SHA256(password + tempKey, salt, 600000) -> 256 bits`. The temp key (128-bit random for single-recipient, SHA-256 of room name for tunnels) is the primary entropy source; the optional password is layered on top.
+
+### Post-quantum note
+
+The application uses **symmetric cryptography only** — no RSA, ECDH, ECDSA, or any asymmetric primitives. AES-256 and HMAC-SHA256 are considered quantum-resistant: Grover's algorithm halves the effective key space, but AES-256 retains 128-bit post-quantum security which is well beyond practical attacks.
+
+The transport layer (HTTPS) relies on Cloudflare's TLS termination. Cloudflare has been deploying hybrid post-quantum key agreement (X25519 + ML-KEM/Kyber) across their network. This is the only point where asymmetric cryptography enters the threat model, and it is outside the application's control.
 
 ## Deploy your own
 
-Backend can be deployed with terraform:
-    - Go into `./terraform/` and copy terraform.tfvars.example to terraform.tfvars and add your own Virtus Total key as well as your AWS account ID
-    - run `terraform apply` 
-    - Note down the output which contains the API address for our frontend.
-    - Modify `./frontend/assets/config.js` with the API address above
+See [deploy/README.md](deploy/README.md) for the full one-shot deploy script. It provisions R2 buckets, KV namespace, the Worker, Pages, and DNS — all against your own Cloudflare account.
 
-Now you just need to test it by hosting the frontend code somewhere. Note that webcrypto is ONLY AVAILABLE from "secure origin". Chrome requires the page to be loaded in "https" or from "localhost". to quickly test everything, you can try using python to host it locally `python3 -m http.server 8888` and visit localhost:8888 in the browser.
+Quick start:
+```bash
+cp deploy/config.example.env deploy/config.env
+# fill in your Cloudflare API token + domain
+./deploy/deploy.sh --yes
+```
 
+Requirements: `wrangler`, `curl`, `jq`, `openssl`.
 
 ## License
+
 This project is licensed under the GPL-3.0 open source license.
-
-

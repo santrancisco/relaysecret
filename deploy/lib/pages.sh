@@ -8,7 +8,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/cf_api.sh"
 # pages_project_exists NAME -> 0 if exists
 pages_project_exists() {
   local name="$1"
-  cf_api_try GET "/accounts/${CF_ACCOUNT_ID}/pages/projects/${name}" >/dev/null
+  cf_api_try GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${name}" >/dev/null
 }
 
 # pages_create_project NAME PRODUCTION_BRANCH
@@ -24,7 +24,7 @@ pages_create_project() {
   local body
   body="$(jq -cn --arg n "$name" --arg b "$branch" \
     '{name:$n, production_branch:$b}')"
-  cf_api POST "/accounts/${CF_ACCOUNT_ID}/pages/projects" "$body" >/dev/null
+  cf_api POST "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects" "$body" >/dev/null
 }
 
 # pages_deploy PROJECT DIR
@@ -36,8 +36,7 @@ pages_deploy() {
     echo "[dry-run] wrangler pages deploy ${dir} --project-name=${project} --branch=main --commit-dirty=true"
     return 0
   fi
-  CLOUDFLARE_API_TOKEN="${CF_API_TOKEN}" CLOUDFLARE_ACCOUNT_ID="${CF_ACCOUNT_ID}" \
-    wrangler pages deploy "$dir" \
+  wrangler pages deploy "$dir" \
       --project-name="$project" \
       --branch=main \
       --commit-dirty=true
@@ -49,7 +48,7 @@ pages_attach_domain() {
   local host="$2"
 
   local existing
-  existing="$(cf_api GET "/accounts/${CF_ACCOUNT_ID}/pages/projects/${project}/domains" || echo '[]')"
+  existing="$(cf_api GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/domains" || echo '[]')"
   local match
   match="$(echo "$existing" | jq -r --arg h "$host" '.[]? | select(.name==$h) | .name' | head -n1)"
   if [[ -n "$match" ]]; then
@@ -60,14 +59,26 @@ pages_attach_domain() {
   echo "  - attaching '${host}' to Pages project '${project}'"
   local body
   body="$(jq -cn --arg h "$host" '{name:$h}')"
-  cf_api POST "/accounts/${CF_ACCOUNT_ID}/pages/projects/${project}/domains" "$body" >/dev/null
+  cf_api POST "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/domains" "$body" >/dev/null
+}
+
+# pages_reverify_domain PROJECT HOST
+# Triggers Cloudflare to re-check DNS and activate a pending custom domain.
+pages_reverify_domain() {
+  local project="$1"
+  local host="$2"
+  if [[ "${DRY_RUN:-0}" == "1" ]]; then
+    echo "[dry-run] PATCH /accounts/.../pages/projects/${project}/domains/${host}"
+    return 0
+  fi
+  cf_api PATCH "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/domains/${host}" >/dev/null || true
 }
 
 # pages_detach_domain PROJECT HOST
 pages_detach_domain() {
   local project="$1"
   local host="$2"
-  cf_api_try DELETE "/accounts/${CF_ACCOUNT_ID}/pages/projects/${project}/domains/${host}" >/dev/null || true
+  cf_api_try DELETE "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${project}/domains/${host}" >/dev/null || true
 }
 
 # pages_delete_project NAME
@@ -78,5 +89,5 @@ pages_delete_project() {
     return 0
   fi
   echo "  - deleting Pages project '${name}'"
-  cf_api DELETE "/accounts/${CF_ACCOUNT_ID}/pages/projects/${name}" >/dev/null
+  cf_api DELETE "/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${name}" >/dev/null
 }

@@ -6,8 +6,8 @@
 #   cf_api_raw METHOD PATH [JSON_BODY]   -> prints full response JSON
 #
 # Honours:
-#   CF_API_TOKEN   — bearer token (required)
-#   DRY_RUN        — if "1", prints the call and returns a stub success
+#   CLOUDFLARE_API_TOKEN   — bearer token (required)
+#   DRY_RUN                — if "1", prints the call and returns a stub success
 #
 # Fails hard on any non-success response (exit 1) after printing .errors.
 
@@ -16,8 +16,8 @@ set -euo pipefail
 CF_API_BASE="https://api.cloudflare.com/client/v4"
 
 _cf_require_token() {
-  if [[ -z "${CF_API_TOKEN:-}" ]]; then
-    echo "[cf_api] CF_API_TOKEN is not set" >&2
+  if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    echo "[cf_api] CLOUDFLARE_API_TOKEN is not set" >&2
     exit 1
   fi
 }
@@ -41,14 +41,14 @@ cf_api_raw() {
   if [[ -n "$body" ]]; then
     http_code="$(curl -sS -o "$tmp" -w '%{http_code}' \
       -X "$method" \
-      -H "Authorization: Bearer ${CF_API_TOKEN}" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
       -H "Content-Type: application/json" \
       --data "$body" \
       "${CF_API_BASE}${path}")"
   else
     http_code="$(curl -sS -o "$tmp" -w '%{http_code}' \
       -X "$method" \
-      -H "Authorization: Bearer ${CF_API_TOKEN}" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
       "${CF_API_BASE}${path}")"
   fi
 
@@ -96,14 +96,14 @@ cf_api_try() {
   if [[ -n "$body" ]]; then
     resp="$(curl -sS \
       -X "$method" \
-      -H "Authorization: Bearer ${CF_API_TOKEN}" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
       -H "Content-Type: application/json" \
       --data "$body" \
       "${CF_API_BASE}${path}")"
   else
     resp="$(curl -sS \
       -X "$method" \
-      -H "Authorization: Bearer ${CF_API_TOKEN}" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
       "${CF_API_BASE}${path}")"
   fi
   echo "$resp"

@@ -79,7 +79,7 @@ Copy the printed `id` into `wrangler.toml`.
 Copy `wrangler.toml.example` to `wrangler.toml` and fill in:
 
 - `R2_ACCOUNT_ID` — Cloudflare account id
-- `FRONTEND_ORIGIN` — e.g. `https://www.relaysecret.com`, or `devmode`
+- `FRONTEND_ORIGIN` — e.g. `https://www.relaysecret.com` or `https://www.relaysecret.com,https://relaysecret.com` for multiple origins, or `devmode`
 - `SEED` — long random string used to salt object keys
 
 Then set the secrets (values never appear in the file):

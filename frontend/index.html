@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Relay Secret — send encrypted messages & files</title>
+  <title>Relay Secret — Send encrypted messages &amp; files</title>
+  <meta name="description" content="Send messages and files encrypted in your browser. The server never sees plaintext — the key stays in the URL fragment.">
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
   <link rel="stylesheet" href="/assets/tokens.css">
   <link rel="stylesheet" href="/assets/app.css">
@@ -12,51 +13,64 @@
 </head>
 <body>
   <span id="forkongithub"><a href="https://github.com/santrancisco/relaysecret" target="_blank" rel="noopener">Fork me on GitHub</a></span>
+
   <header class="site-header">
-    <h1 class="wordmark"><a href="/">Relay Secret</a></h1>
-    <nav>
-      <a href="/" class="active">Send</a>
+    <p class="wordmark"><a href="/">Relay Secret</a></p>
+    <nav aria-label="Main navigation">
+      <a href="/" class="active" aria-current="page">Send</a>
       <a href="/tunnel/">Tunnel</a>
       <a href="/clipboard/">Clipboard</a>
     </nav>
-    <p class="tagline">Send messages &amp; files encrypted in your browser. The server never sees plaintext.</p>
+    <p class="tagline">Encrypt messages &amp; files in your browser. The server never sees plaintext.</p>
   </header>
 
   <main class="page">
     <div class="card" id="sendCard">
-      <div class="tabs" role="tablist">
-        <button id="tabMsg"  class="active" type="button">Encrypt message</button>
-        <button id="tabFile" type="button">Encrypt file</button>
-        <button id="tabDec"  type="button">Decrypt</button>
+
+      <!-- Tab bar -->
+      <div class="tabs" role="tablist" aria-label="Mode">
+        <button id="tabMsg"  role="tab" aria-selected="true"  aria-controls="paneMsg"  type="button">Encrypt message</button>
+        <button id="tabFile" role="tab" aria-selected="false" aria-controls="paneFile" type="button">Encrypt file</button>
+        <button id="tabDec"  role="tab" aria-selected="false" aria-controls="paneDec"  type="button">Decrypt</button>
       </div>
 
-      <!-- ---------- Encrypt: message ---------- -->
-      <section id="paneMsg" class="stack">
+      <!-- ── Encrypt: message ──────────────────────────────── -->
+      <section id="paneMsg" role="tabpanel" aria-labelledby="tabMsg" class="stack">
         <h2>Encrypt a message</h2>
-        <textarea id="msgInput" placeholder="Type your secret message here…" maxlength="5000"></textarea>
+        <div class="field">
+          <label for="msgInput">Secret message</label>
+          <textarea id="msgInput" placeholder="Type your secret message here…" maxlength="5000" autocomplete="off" spellcheck="false"></textarea>
+        </div>
       </section>
 
-      <!-- ---------- Encrypt: file ---------- -->
-      <section id="paneFile" class="stack hidden">
+      <!-- ── Encrypt: file ─────────────────────────────────── -->
+      <section id="paneFile" role="tabpanel" aria-labelledby="tabFile" class="stack hidden">
         <h2>Encrypt a file</h2>
-        <p class="muted">Up to 2 GB on desktop. The filename is taken from the file you upload and stored in metadata (not encrypted).</p>
-        <div class="dropzone" id="dropzone">
-          <p>Drag &amp; drop a file here, or <a href="#" id="dzPick"><b>click to select</b></a>.</p>
-          <p class="file-info" id="dzFileInfo"></p>
+        <p class="muted">No fixed size limit — large files are streamed in encrypted chunks. The filename is stored unencrypted in metadata; rename before uploading if that matters.</p>
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop zone — drag a file here or click to select">
+          <div id="dzIdleContent">
+            <p>Drag &amp; drop a file here, or <a href="#" id="dzPick"><strong>click to browse</strong></a>.</p>
+            <p class="file-info" id="dzFileInfo"></p>
+          </div>
+          <div id="dzDoneContent" class="hidden">
+            <p class="dz-done-label">Uploaded successfully</p>
+            <p class="dz-done-name" id="dzDoneName"></p>
+          </div>
         </div>
+        <button id="btnUploadAnother" type="button" class="hidden">Upload another file</button>
         <input type="file" id="fileInput" class="hidden" autocomplete="off">
         <input id="filenameInput" type="hidden" autocomplete="off">
       </section>
 
-      <!-- ---------- Shared encrypt options ---------- -->
+      <!-- ── Shared encrypt options ────────────────────────── -->
       <section id="encOptions" class="stack">
         <div class="field">
-          <label for="passInput">Password (optional — extra layer on top of the URL fragment key)</label>
-          <input id="passInput" type="password" autocomplete="off">
+          <label for="passInput">Password <span class="subtle">(optional — extra layer on top of the URL key)</span></label>
+          <input id="passInput" type="password" autocomplete="new-password" placeholder="Leave blank to rely on the URL key alone">
         </div>
         <div class="field-row">
-          <div>
-            <label for="expireSelect">Expire after</label>
+          <div class="field" style="margin-bottom:0">
+            <label for="expireSelect">Expires after</label>
             <select id="expireSelect">
               <option value="1">1 day</option>
               <option value="2">2 days</option>
@@ -66,8 +80,8 @@
               <option value="10">10 days</option>
             </select>
           </div>
-          <div>
-            <label for="regionSelect">Datastore region</label>
+          <div class="field" style="margin-bottom:0">
+            <label for="regionSelect">Data region</label>
             <select id="regionSelect">
               <option value="us">United States</option>
               <option value="eu">Europe</option>
@@ -81,19 +95,20 @@
         </div>
         <div class="row">
           <button id="btnEncrypt" class="primary" type="button" disabled>Encrypt &amp; Upload</button>
-          <span id="encStatus" class="muted grow"></span>
+          <span id="encStatus" class="muted grow" role="status" aria-live="polite"></span>
         </div>
-        <div id="encProgress" class="hidden"></div>
+        <div id="encProgress" class="hidden" role="status" aria-live="polite"></div>
+        <div id="uploadBar"   class="hidden" role="progressbar" aria-label="Upload progress"></div>
       </section>
 
-      <!-- ---------- Encrypt result ---------- -->
+      <!-- ── Encrypt result ────────────────────────────────── -->
       <section id="paneResult" class="stack hidden url-result">
         <h2>Share this URL</h2>
-        <p class="muted">Only share with people you trust. The fragment after <code>#</code> is the key — it never leaves your browser.</p>
-        <div class="code-block" id="shareUrlBlock"></div>
+        <p class="muted">Only share with trusted recipients. The <code>#fragment</code> at the end is the key — it never leaves your browser or reaches any server.</p>
+        <div class="code-block" id="shareUrlBlock" aria-label="Share URL"></div>
         <div class="qr-wrap">
-          <div id="shareQr" class="qr-code" aria-label="QR code for share URL"></div>
-          <p class="muted qr-hint">Scan with a phone camera to open on mobile.</p>
+          <div id="shareQr" class="qr-code" role="img" aria-label="QR code for the share URL"></div>
+          <p class="qr-hint muted">Scan with a phone camera to open on mobile.</p>
         </div>
         <div class="row">
           <button id="btnCopyUrl" class="primary" type="button">Copy URL</button>
@@ -101,47 +116,50 @@
         </div>
       </section>
 
-      <!-- ---------- Decrypt ---------- -->
-      <section id="paneDec" class="stack hidden">
+      <!-- ── Decrypt ───────────────────────────────────────── -->
+      <section id="paneDec" role="tabpanel" aria-labelledby="tabDec" class="stack hidden">
         <h2>Decrypt</h2>
-        <p id="decMeta" class="muted">Paste a Relay Secret URL into the address bar to begin — or this tab will open automatically when one is detected.</p>
+        <p id="decMeta" class="muted">Paste a Relay Secret URL into the address bar to begin — or this tab opens automatically when one is detected.</p>
         <div class="field">
-          <label for="decPassInput">Password (if the sender set one)</label>
-          <input id="decPassInput" type="password" autocomplete="off">
+          <label for="decPassInput">Password <span class="subtle">(if the sender set one)</span></label>
+          <input id="decPassInput" type="password" autocomplete="off" placeholder="Leave blank if no password was set">
         </div>
         <div class="row">
           <button id="btnDecrypt" class="primary" type="button" disabled>Download &amp; Decrypt</button>
-          <span id="decStatus" class="muted grow"></span>
+          <span id="decStatus" class="muted grow" role="status" aria-live="polite"></span>
         </div>
-        <div id="decProgress" class="hidden"></div>
+        <div id="decProgress" class="hidden" role="status" aria-live="polite"></div>
+        <div id="downloadBar" class="hidden" role="progressbar" aria-label="Download progress"></div>
         <div id="decResult" class="stack hidden">
-          <textarea id="decMsgOut" class="hidden" readonly></textarea>
-          <img id="decImg" class="preview hidden" alt="decrypted preview">
+          <textarea id="decMsgOut" class="hidden" readonly aria-label="Decrypted message"></textarea>
+          <img id="decImg" class="preview hidden" alt="Decrypted image preview">
           <div class="row">
             <a id="decDownload" class="btn primary hidden" download>Save decrypted file</a>
             <button id="btnDelete" class="hidden" type="button">Delete from server</button>
           </div>
         </div>
       </section>
-    </div>
 
-    <div class="card faq">
+    </div><!-- /card -->
+
+    <!-- FAQ -->
+    <div class="card faq" aria-label="Frequently asked questions">
       <h2>FAQ</h2>
       <details>
         <summary>Does your server ever see my data?</summary>
-        <p>No. Everything is encrypted in your browser with AES-GCM-256 before upload. The key is derived from a random value we put in the URL fragment (<code>#…</code>), which browsers never send to servers.</p>
+        <p>No. Everything is encrypted in your browser with AES-GCM-256 before upload. The key is derived from a random value in the URL fragment (<code>#…</code>), which browsers never send to servers.</p>
       </details>
       <details>
-        <summary>What changed vs the old AWS version?</summary>
-        <p>Crypto upgraded from AES-CBC + PBKDF2 10k iterations to AES-GCM-256 (authenticated) + PBKDF2-SHA256 600k iterations. 16-byte salt, 12-byte random IV per message. The blob format is tagged "RSv1" so we can evolve it later.</p>
+        <summary>Is the encryption quantum-safe?</summary>
+        <p>The symmetric layer — AES-GCM-256 with a PBKDF2-SHA256-derived key — is considered post-quantum safe. A quantum computer running Grover's algorithm halves the effective key length, so AES-256 retains 128 bits of post-quantum security, which remains far beyond any foreseeable attack. The key exchange uses a random secret embedded in the URL fragment rather than an asymmetric handshake, so there is no Shor-vulnerable RSA or elliptic-curve step to worry about.</p>
       </details>
       <details>
         <summary>How big can a file be?</summary>
-        <p>Up to 2 GB on desktop browsers. WebCrypto needs the whole file in memory, so very large files depend on how much RAM the browser will give us.</p>
+        <p>There is no fixed size limit. Files up to 500 MB are encrypted in one pass; files above that are split into 128 MB chunks, each independently encrypted, and streamed directly to R2 via multipart upload — so your browser never holds the whole file in memory. Decryption is also streamed chunk-by-chunk straight to disk. In practice the ceiling is set by Cloudflare R2's multipart limit (~1.25 TB at 128 MB per part).</p>
       </details>
       <details>
         <summary>Can I trust you?</summary>
-        <p>The whole site and Worker are open source on <a href="https://github.com/santrancisco/relaysecret" target="_blank" rel="noopener">GitHub</a> — read every line yourself, or fork it and run your own. Inspect the network tab while you use the site: you'll only ever see ciphertext leaving your machine.</p>
+        <p>The full site and Worker source are open on <a href="https://github.com/santrancisco/relaysecret" target="_blank" rel="noopener">GitHub</a>. Read every line yourself, or fork it and run your own instance. Open the network tab while you use the site — you'll only ever see ciphertext leaving your machine.</p>
       </details>
     </div>
   </main>

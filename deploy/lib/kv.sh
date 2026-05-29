@@ -10,7 +10,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/cf_api.sh"
 kv_find_namespace_id() {
   local title="$1"
   local resp
-  resp="$(cf_api GET "/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces?per_page=100")" || return 0
+  resp="$(cf_api GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces?per_page=100")" || return 0
   echo "$resp" | jq -r --arg t "$title" '.[] | select(.title == $t) | .id' | head -n1
 }
 
@@ -28,7 +28,7 @@ kv_create_namespace() {
   echo "  - creating KV namespace '${title}'" >&2
   local body result
   body="$(jq -cn --arg t "$title" '{title:$t}')"
-  result="$(cf_api POST "/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces" "$body")"
+  result="$(cf_api POST "/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces" "$body")"
   id="$(echo "$result" | jq -r '.id')"
   if [[ -z "$id" || "$id" == "null" ]]; then
     echo "[kv] failed to parse namespace id from create response" >&2
@@ -48,5 +48,5 @@ kv_delete_namespace() {
     return 0
   fi
   echo "  - deleting KV namespace '${title}' (id=${id})"
-  cf_api DELETE "/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${id}" >/dev/null
+  cf_api DELETE "/accounts/${CLOUDFLARE_ACCOUNT_ID}/storage/kv/namespaces/${id}" >/dev/null
 }
