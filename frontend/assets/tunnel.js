@@ -133,12 +133,23 @@ async function refreshList() {
   setStatus($('listStatus'), 'Loading files…');
   try {
     const resp = await listTunnel({ region: REGION, tunnel: state.tunnelId });
-    const files = (resp && resp.objects) || [];
+
+    // Ensure we have a valid array - handle cases where objects might be a non-array value
+    let files = [];
+    if (resp && Array.isArray(resp.objects)) {
+      files = resp.objects;
+    } else if (resp && resp.objects !== null && resp.objects !== undefined) {
+      // Log unexpected response structure for debugging
+      console.error('Unexpected response structure:', resp);
+      throw new Error('Invalid response format: objects is not an array');
+    }
+
     const truncated = !!(resp && resp.truncated);
     renderList(files);
     const label = files.length + ' file(s)' + (truncated ? ' (list capped at 200 — delete older files to see more)' : '');
     setStatus($('listStatus'), label, truncated ? 'warn' : null);
   } catch (err) {
+    console.error('List error:', err);
     setStatus($('listStatus'), 'Failed to list: ' + (err.message || err), 'err');
   }
 }

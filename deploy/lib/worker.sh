@@ -100,6 +100,8 @@ worker_bind_domain() {
   # any pre-existing A/CNAME at $host (e.g. leftover from a previous AWS
   # deployment) with the Worker's managed record. Without this flag the
   # API 409s with code 100117.
+  # override_existing_origin=true allows reusing a hostname already bound to
+  # another custom domain entry, resolving error code 100116.
   local body
   body="$(jq -cn \
     --arg zone "$zone" \
@@ -111,7 +113,8 @@ worker_bind_domain() {
       hostname: $host,
       service: $svc,
       environment: $env,
-      override_existing_dns_record: true
+      override_existing_dns_record: true,
+      override_existing_origin: true
     }')"
   cf_api PUT "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/domains" "$body" >/dev/null
 }

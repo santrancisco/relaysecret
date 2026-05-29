@@ -54,7 +54,10 @@ export async function tunnelList(url, request, env) {
 
     const page = await region.binding.list(opts);
 
-    for (const obj of page.objects || []) {
+    // Ensure page.objects is always an array
+    const objects = Array.isArray(page?.objects) ? page.objects : [];
+
+    for (const obj of objects) {
       if (out.length >= MAX_LIST_OBJECTS) {
         truncated = true;
         break;
@@ -68,10 +71,10 @@ export async function tunnelList(url, request, env) {
       });
     }
 
-    if (page.truncated && out.length < MAX_LIST_OBJECTS) {
+    if (page?.truncated && out.length < MAX_LIST_OBJECTS) {
       cursor = page.cursor;
     } else {
-      truncated = truncated || page.truncated;
+      truncated = truncated || !!page?.truncated;
       break;
     }
   } while (true);
